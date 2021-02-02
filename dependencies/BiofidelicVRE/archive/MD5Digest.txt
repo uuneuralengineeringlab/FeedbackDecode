@@ -1,0 +1,9 @@
+12c7d9201dca127a04a3f4fc68812c38 *20150923-134838_debugged2.srf
+506f15e526391644bdf52aa9b51d7704 *assignContactSensor_FD.m
+0aaa3631ed363d3d30fe8e88b079eeee *assignProprioceptionSensor_FD.m
+be6608f7024755038ed23d2f4ef8a364 *assignReceptors_FD.m
+5e84864b2ae073e180430ed327058e96 *calibrateEncode_FD.m
+44d24281ebf09a0285f90baaba945182 *desktop.ini
+863e8b402d917b794ff68975b61baac9 *getSRF_FD.m
+d41d8cd98f00b204e9800998ecf8427e *MD5Digest.txt
+270226594b901b1bc77d815e033783d3 *readSRF_FD.m

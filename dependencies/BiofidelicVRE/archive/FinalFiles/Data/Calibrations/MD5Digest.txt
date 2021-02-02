@@ -1,0 +1,3 @@
+44d24281ebf09a0285f90baaba945182 *desktop.ini
+30b40ceeaa064a3857cf98ab309030b4 *HaptixIncCalibration.mat
+d41d8cd98f00b204e9800998ecf8427e *MD5Digest.txt

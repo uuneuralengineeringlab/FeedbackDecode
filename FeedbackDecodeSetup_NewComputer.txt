@@ -1,0 +1,20 @@
+HOW TO GET A FRESH START FOR FEEDBACKDECODE EXPERIMENTS
+
+1. Install Windows 10 Pro
+2. Install LabVIEW Spring 2020 (with MathScript, JKI Package Manager, VISION, LabVIEW ZMQ) Serial: H11X42907
+3. Install ZeroMQ executable: CNI\General\ZeroMQ\ZeroMQ-4.0.4_miru1.0-x64.exe
+4. Install Vision Acquisition Software: https://www.ni.com/en-us/support/downloads/drivers/download.vision-acquisition-software.html#367318
+	Or "CNI\General\LabVIEW_Packages\ni-vision-acquisition_20.6_suite_online.exe"
+5. Install NI-CAN: https://www.ni.com/en-us/support/downloads/drivers/download.ni-can.html#344641
+	Or "CNI\General\LabVIEW_Packages\NICAN1850.exe"
+4. Install MATLAB 2020b
+5. Install Pupil Labs version: 
+
+For 2-computer setup, Ethernet adapter must be configured to handle large packets
+1. Control Panel\Network and Internet\Network Connections
+2. Open network adapter ("Internet") adapter properties
+3. Configure...
+4. Properties (may only be Jumbo packet)
+Jumbo packet - 4088 bytes
+Transmit buffers - 16384
+Receive buffers - 4096

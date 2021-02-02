@@ -1,0 +1,13 @@
+Red	1	236	28	36	thumb_distal
+Lavender	2	216	207	255	thumb_distal
+Orange	3	249	136	49	palm_back
+LGreen	4	165	255	153	palm_side
+Gold	5	249	189	49	palm_thumb
+Yellow	6	236	236	28	palm_pinky
+Blue	7	52	28	236	pinky_distal
+Purple	8	170	28	236	ring_distal
+Magenta	9	236	28	174	middle_distal
+Pink	10	255	170	230	index_distal
+LBlue	11	140	255	251	index_medial
+BGreen	12	27	234	189	thumb_distal
+Green	13	25	178	89	thumb_medial

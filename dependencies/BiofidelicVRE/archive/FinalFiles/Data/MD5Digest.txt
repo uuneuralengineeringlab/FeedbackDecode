@@ -1,0 +1,13 @@
+670cef257cb365425f862aac337d6c65 *contactLabels.mat
+2c5fa9d785ac810c8b6f41f3efd8c337 *contactSitesImage.mat
+44d24281ebf09a0285f90baaba945182 *desktop.ini
+5a85bf14ba06fe000546fcfcf9ceb392 *HaptixInc2.srf
+d41d8cd98f00b204e9800998ecf8427e *MD5Digest.txt
+5924541b1292579737fb45980f679c97 *MSMS2VRE_old.asv
+5924541b1292579737fb45980f679c97 *MSMS2VRE_old.m
+ad44a41b010dd5ec3c0bdfa808302ed2 *proprioceptionImageABD.mat
+ff07aeb33c87e3f801a0469237e605cb *proprioceptionImageFLEX.mat
+f9a8838ff96d0fcbc9516d2429566231 *proprioceptionLabels.mat
+d1c7423eaa1fa2b02713bae64aaf0aa2 *proprioceptionLabelsABD.mat
+41f617bb9273c04ac78fa22b3c34c08a *proprioceptionLabelsFLEX.mat
+a6e3f87472561bcc4dd0c59d93a942cf *VREConfig.mat

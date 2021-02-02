@@ -1,0 +1,8 @@
+c03272c57aa08a856278341fb94562aa *changeSRFElectNumbering.m
+7c70a831487438bc3eca0290d51f3a75 *combineSRFs.m
+08b6e0f5ddce6183c1d493be47b9abd9 *datetime.m
+44d24281ebf09a0285f90baaba945182 *desktop.ini
+d41d8cd98f00b204e9800998ecf8427e *MD5Digest.txt
+dc0e4ef1acfa383cc9b0c4d5c495126c *SRF2Mat_FD.m
+1057fe0af6648344ccba1d59d422e38c *SRF2Str_FD.m
+28a805337c8b3abbd3f45f71277cfa2a *updateSRF_FD.m

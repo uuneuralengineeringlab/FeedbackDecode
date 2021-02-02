@@ -1,0 +1,5 @@
+44d24281ebf09a0285f90baaba945182 *desktop.ini
+ae4b35164b7e72d419a4db8ce841228a *license.txt
+f611f3cfea45a369669da6992fe55af1 *MapN.m
+d41d8cd98f00b204e9800998ecf8427e *MD5Digest.txt
+499189baf9eb87a2e512f150faf76cd4 *memoize.m

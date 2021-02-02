@@ -1,0 +1,9 @@
+Compiling FeedbackDecode
+Compile MATLAB first
+FeedbackDecodeAux_Build.m
+FeedbackDecode_Build.m
+
+Then LabVIEW
+Project window - FeedbackDecode.lvproj
+Under Build specifications
+	Right-click FeedbackDecode and select "Build"
