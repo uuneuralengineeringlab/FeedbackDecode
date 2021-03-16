@@ -85,7 +85,7 @@ if isfield(SS,'UDPNIP')
     delete(SS.UDPNIP);
 end
 if SS.ARD1.Ready; SS.ARD1.Ready = ctrlRBArduino; end
-if SS.ARD2.Ready; fclose(SS.ARD2.Obj); delete(SS.ARD2.Obj); end
+if SS.VTStim.Ready; SS.VTStim.Obj.close; end
 if SS.ARD3.Ready; fclose(SS.ARD3.Obj); delete(SS.ARD3.Obj); end
 if isfield(SS,'PHandFID'); fclose(SS.PHandFID); end
 if SS.DEKA.Ready; lkmex('stop'); clear lkmex; end
@@ -229,10 +229,10 @@ end
 % opening connection with arduino
 SS.ARD6.Ready = 0;
 SS = connectARD(SS);
-
+pause(2);
 % initializing LEAP
 SS.LEAP.Ready = 0;
-% SS = connectLEAP(SS);
+SS = connectLEAP(SS);
 
 % initializing cyberglove
 SS.CyberGlove.Ready = 0;
@@ -2375,33 +2375,29 @@ if ~isempty(SS.StimChan)
     
 end
 
-if SS.ARD2.Ready %buzzer feedback with arduino nano
-    if SS.ARD2.Obj.BytesAvailable
-        try
-            val = fread(SS.ARD2.Obj,6);
-            amp = zeros(6,1);
-            switch SS.StimMode
-                case 'VRE'
-                    if SS.VREStatus
-                        switch SS.VREInfo.HandType
-                            case 'MPL'
-                                amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.ARD2.Idx2ContactMPL),SS.VREInfo.sensors.motor_pos(SS.ARD2.Idx2MotorMPL),SS.VREInfo.robot.motor_limit(SS.ARD2.Idx2MotorMPL,:),'MPL');
-                            otherwise
-                                amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.ARD2.Idx2ContactLuke),SS.VREInfo.sensors.motor_pos(SS.ARD2.Idx2MotorLuke),SS.VREInfo.robot.motor_limit(SS.ARD2.Idx2MotorLuke,:),'Luke');
-                        end
+if SS.VTStim.Ready %buzzer feedback with arduino nano
+    try
+        amp = zeros(6,1);
+        switch SS.StimMode
+            case 'VRE'
+                if SS.VREStatus
+                    switch SS.VREInfo.HandType
+                        case 'MPL'
+                            amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.VTStim.Idx2ContactMPL),SS.VREInfo.sensors.motor_pos(SS.VTStim.Idx2MotorMPL),SS.VREInfo.robot.motor_limit(SS.VTStim.Idx2MotorMPL,:),'MPL');
+                        otherwise
+                            amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.VTStim.Idx2ContactLuke),SS.VREInfo.sensors.motor_pos(SS.VTStim.Idx2MotorLuke),SS.VREInfo.robot.motor_limit(SS.VTStim.Idx2MotorLuke,:),'Luke');
                     end
-            end
-            SS.ARD2.Amp = amp;
-            fwrite(SS.ARD2.Obj,SS.ARD2.Amp,'uint8');
-        catch ME
-            disp('Arduino connection failed...');
-            if isempty(ME.stack)
-                fprintf('message: %s\r\n',ME.message);
-            else
-                fprintf('message: %s; name: %s; line: %0.0f\r\n',ME.message,ME.stack(1).name,ME.stack(1).line);
-            end
-            SS.ARD2.Ready = 0;
+                end
         end
+        SS.VTStim.Obj.write = amp;
+    catch ME
+        disp('VTStim write failed...');
+        if isempty(ME.stack)
+            fprintf('message: %s\r\n',ME.message);
+        else
+            fprintf('message: %s; name: %s; line: %0.0f\r\n',ME.message,ME.stack(1).name,ME.stack(1).line);
+        end
+        SS.VTStim.Ready = 0;
     end
 end
 
@@ -3317,37 +3313,20 @@ if SS.StartARD
 
     %buzzer feedback with arduino nano
     try
-        isadfh = kjasdfb ; % dk hack to get rid of nano conflict 20180717
-        SS.ARD2.Amp = [0;0;0;0;0;0];
-        SS.ARD2.Pin = [3;5;6;9;10;11];
-        SS.ARD2.Labels = {'thumb_distal';'index_distal';'middle_distal';'ring_distal';'pinky_distal';'palm_side'};
-        SS.ARD2.Idx2ContactMPL = [7;10;13;16;19];
-        SS.ARD2.Idx2ContactLuke = [5;7;9;10;11];
-        SS.ARD2.Idx2MotorMPL = 9;
-        SS.ARD2.Idx2MotorLuke = 5;
-        devs = getSerialID;
-        COMStr = [];
-        if ~isempty(devs)
-            COMPort = cell2mat(devs(~cellfun(@isempty,regexp(devs(:,1),'CH340')),2));
-            if ~isempty(COMPort)
-                COMStr = sprintf('COM%0.0f',COMPort);
-            end
-        end
-        if isempty(COMStr)
-            SS.ARD2.Ready = 0;
-            disp('Arduino2 hand buzzers failed to connect')
-        else
-            SS.ARD2.Obj = serial(COMStr,'BaudRate',115200);
-            fopen(SS.ARD2.Obj); pause(1);
-            flushinput(SS.ARD2.Obj); pause(0.1);
-            flushoutput(SS.ARD2.Obj); pause(0.1);
-            fwrite(SS.ARD2.Obj,SS.ARD2.Amp,'uint8');
-            SS.ARD2.Ready = 1;
-            disp('Arduino2 hand buzzers connected')
-        end
+        SS.VTStim.Amp = [0;0;0;0;0;0]; %not used
+        SS.VTStim.Pin = [3;5;6;9;10;11]; %not used
+        SS.VTStim.Labels = {'thumb_distal';'index_distal';'middle_distal';'ring_distal';'pinky_distal';'palm_side'};
+        SS.VTStim.Idx2ContactMPL = [7;10;13;16;19];
+        SS.VTStim.Idx2ContactLuke = [5;7;9;10;11];
+        SS.VTStim.Idx2MotorMPL = 9;
+        SS.VTStim.Idx2MotorLuke = 5;
+        
+        SS.VTStim.Obj = VTStim;
+        SS.VTStim.Ready = 1;
+        disp('VTStim hand buzzers connected')
     catch
-        SS.ARD2.Ready = 0;
-        disp('Arduino2 hand buzzers failed to connect')
+        SS.VTStim.Ready = 0;
+        disp('VTStim hand buzzers failed to connect')
     end
 
     %open bionics hand
@@ -3440,7 +3419,7 @@ if SS.StartARD
     end
 else % attemptConnect == 0
     SS.ARD1.Ready = 0;
-    SS.ARD2.Ready = 0;
+    SS.VTStim.Ready = 0;
     SS.ARD3.Ready = 0;
     SS.ARD4.Ready = 0;
     SS.ARD6.Ready = 0;
