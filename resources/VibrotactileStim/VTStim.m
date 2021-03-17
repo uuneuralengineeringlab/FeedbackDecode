@@ -3,7 +3,7 @@ classdef VTStim < handle
     % "C:\Users\Administrator\Box\CNI\Tasks\FeedbackDecode\resources\VibrotactileStim"
     %
     % VT = VTStim;
-    % TGI.write([255,0,100,50,0,0]); pwm output sent to buzzers (pins 3,5,6,9,10,11 on arduino nano)
+    % VT.write([255,0,100,50,0,0]); pwm output sent to buzzers (pins 3,5,6,9,10,11 on arduino nano)
     %
     % Version: 20210316
     % Author: Tyler Davis
