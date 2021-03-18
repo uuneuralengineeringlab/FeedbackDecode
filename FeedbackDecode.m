@@ -2905,7 +2905,7 @@ if SS.TargOn % if there is an active target
                 SS.CogLoadStimOn = 1;
                 xippmex_1_12('digout',[1, 5],[1, targ2EEGEvent(SS.TargRad, SS.T, 'BuzzOn')]); 
                 SS.CogLoadNextStimOffTS = SS.CurrTS + SS.SecondaryTaskStimDur*30; % *30 for NIPTime
-                SS.CogLoadNextStimTS = SS.CogLoadNextStimOffTS + ...
+                SS.CogLoadNextStimTS = SS.CurrTS + ...
                     30*(SS.SecondaryTaskMinBetweenStim + rand*SS.SecondaryTaskVarBetweenStim);
             end
         else % when buzzing
