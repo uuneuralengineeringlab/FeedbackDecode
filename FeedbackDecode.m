@@ -209,7 +209,7 @@ if SS.StartMLAux
     % system('powershell start-process "D:\RemoteRepo\FeedbackDecodeAux.exe" -verb runAs');
     switch SS.NumComp
         case '1 Computer'
-            system(['psexec -i -d -u Administrator -p UUNEL@CNC ',fullfile(SS.BuildDir,'FeedbackDecodeAux.exe')]);
+            system(['psexec -i -d -u Administrator -p UUNEL@CNC "',fullfile(SS.BuildDir,'FeedbackDecodeAux.exe"')]);
         otherwise
             system('psexec -i -d -u Administrator -p UUNEL@CNC D:\RemoteRepo\FeedbackDecodeAux.exe');
     end
