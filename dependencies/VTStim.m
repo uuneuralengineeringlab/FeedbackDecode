@@ -3,7 +3,14 @@ classdef VTStim < handle
     % "C:\Users\Administrator\Box\CNI\Tasks\FeedbackDecode\resources\VibrotactileStim"
     %
     % VT = VTStim;
-    % TGI.write([255,0,100,50,0,0]); pwm output sent to buzzers (pins 3,5,6,9,10,11 on arduino nano)
+    % VT.write([255,0,100,50,0,0]); pwm output sent to buzzers (pins 3,5,6,9,10,11 on arduino nano)
+    % Pin layout to stimulator:
+    % 3: thumb
+    % 5: index
+    % 6: middle
+    % 9: ring
+    % 10: little
+    % 11: palm
     %
     % Version: 20210316
     % Author: Tyler Davis
@@ -29,7 +36,7 @@ classdef VTStim < handle
                 end
             end
             delete(instrfind('port',obj.COMStr));
-            obj.ARD = serialport(obj.COMStr,250000,'Timeout',1);
+            obj.ARD = serialport(obj.COMStr,250000,'Timeout',0.005);
             configureCallback(obj.ARD,"terminator",@obj.read);
             flush(obj.ARD); pause(0.1);
             obj.write([0,0,0,0,0,0]); pause(0.1); %back to defaults

@@ -85,7 +85,7 @@ if isfield(SS,'UDPNIP')
     delete(SS.UDPNIP);
 end
 if SS.ARD1.Ready; SS.ARD1.Ready = ctrlRBArduino; end
-if SS.VTStim.Ready; SS.VTStim.Obj.close; end
+if SS.VTStruct.Ready; SS.VTStruct.Obj.close; end
 if SS.ARD3.Ready; fclose(SS.ARD3.Obj); delete(SS.ARD3.Obj); end
 if isfield(SS,'PHandFID'); fclose(SS.PHandFID); end
 if SS.DEKA.Ready; lkmex('stop'); clear lkmex; end
@@ -2375,21 +2375,28 @@ if ~isempty(SS.StimChan)
     
 end
 
-if SS.VTStim.Ready %buzzer feedback with arduino nano
+if SS.VTStruct.Ready %buzzer feedback with arduino nano
     try
-        amp = zeros(6,1);
-        switch SS.StimMode
-            case 'VRE'
-                if SS.VREStatus
-                    switch SS.VREInfo.HandType
-                        case 'MPL'
-                            amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.VTStim.Idx2ContactMPL),SS.VREInfo.sensors.motor_pos(SS.VTStim.Idx2MotorMPL),SS.VREInfo.robot.motor_limit(SS.VTStim.Idx2MotorMPL,:),'MPL');
-                        otherwise
-                            amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.VTStim.Idx2ContactLuke),SS.VREInfo.sensors.motor_pos(SS.VTStim.Idx2MotorLuke),SS.VREInfo.robot.motor_limit(SS.VTStim.Idx2MotorLuke,:),'Luke');
-                    end
-                end
+        CSF = zeros(6,1);
+        if length(SS.ContStimFreq)<6
+            CSF(1:length(SS.ContStimFreq)) = SS.ContStimFreq;
+        else
+            CSF = SS.ContStimFreq(1:6);
         end
-        SS.VTStim.Obj.write = amp;
+        SS.VTStruct.Obj.write(CSF);
+%         amp = zeros(6,1);
+%         switch SS.StimMode
+%             case 'VRE'
+%                 if SS.VREStatus
+%                     switch SS.VREInfo.HandType
+%                         case 'MPL'
+%                             amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.VTStruct.Idx2ContactMPL),SS.VREInfo.sensors.motor_pos(SS.VTStruct.Idx2MotorMPL),SS.VREInfo.robot.motor_limit(SS.VTStruct.Idx2MotorMPL,:),'MPL');
+%                         otherwise
+%                             amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.VTStruct.Idx2ContactLuke),SS.VREInfo.sensors.motor_pos(SS.VTStruct.Idx2MotorLuke),SS.VREInfo.robot.motor_limit(SS.VTStruct.Idx2MotorLuke,:),'Luke');
+%                     end
+%                 end
+%         end
+%         SS.VTStruct.Obj.write = amp;
     catch ME
         disp('VTStim write failed...');
         if isempty(ME.stack)
@@ -2397,7 +2404,7 @@ if SS.VTStim.Ready %buzzer feedback with arduino nano
         else
             fprintf('message: %s; name: %s; line: %0.0f\r\n',ME.message,ME.stack(1).name,ME.stack(1).line);
         end
-        SS.VTStim.Ready = 0;
+        SS.VTStruct.Ready = 0;
     end
 end
 
@@ -3297,132 +3304,136 @@ function SS = connectARD(SS)
 
 if SS.StartARD
     % rock band connect
-    try % smw
-        SS.ARD1.Ready = ctrlRBArduino(zeros(1,5));
-        if SS.ARD1.Ready
-            disp('Arduino1 Rock Band connected...')
-        else
-            disp('Arduino1: Rock Band failed to connect')
-        end
-    catch
-        SS.ARD1.Ready = 0;
-        disp('Arduino1: Rock Band failed to connect')
-    end
+%     try % smw
+%         SS.ARD1.Ready = ctrlRBArduino(zeros(1,5));
+%         if SS.ARD1.Ready
+%             disp('Arduino1 Rock Band connected...')
+%         else
+%             disp('Arduino1: Rock Band failed to connect')
+%         end
+%     catch
+%         SS.ARD1.Ready = 0;
+%         disp('Arduino1: Rock Band failed to connect')
+%     end
 
-    % SS.ARD1.Ready = 0;
+    SS.ARD1.Ready = 0;
 
     %buzzer feedback with arduino nano
     try
-        SS.VTStim.Amp = [0;0;0;0;0;0]; %not used
-        SS.VTStim.Pin = [3;5;6;9;10;11]; %not used
-        SS.VTStim.Labels = {'thumb_distal';'index_distal';'middle_distal';'ring_distal';'pinky_distal';'palm_side'};
-        SS.VTStim.Idx2ContactMPL = [7;10;13;16;19];
-        SS.VTStim.Idx2ContactLuke = [5;7;9;10;11];
-        SS.VTStim.Idx2MotorMPL = 9;
-        SS.VTStim.Idx2MotorLuke = 5;
+        SS.VTStruct.Amp = [0;0;0;0;0;0]; %not used
+        SS.VTStruct.Pin = [3;5;6;9;10;11]; %not used
+        SS.VTStruct.Labels = {'thumb_distal';'index_distal';'middle_distal';'ring_distal';'pinky_distal';'palm_side'};
+        SS.VTStruct.Idx2ContactMPL = [7;10;13;16;19];
+        SS.VTStruct.Idx2ContactLuke = [5;7;9;10;11];
+        SS.VTStruct.Idx2MotorMPL = 9;
+        SS.VTStruct.Idx2MotorLuke = 5;
         
-        SS.VTStim.Obj = VTStim;
-        SS.VTStim.Ready = 1;
+        SS.VTStruct.Obj = VTStim;
+        SS.VTStruct.Ready = 1;
         disp('VTStim hand buzzers connected')
     catch
-        SS.VTStim.Ready = 0;
+        SS.VTStruct.Ready = 0;
         disp('VTStim hand buzzers failed to connect')
     end
 
     %open bionics hand
-    try
-        SS.PHandContactLabels = {'thumb_distal','palm_pinky','index_distal','middle_distal'};
-        SS.PHandMotorLabels = {'thumb_MCP','index_MCP','middle_MCP','ring_MCP','pinky_MCP','wrist_FLEX','wrist_PRO','','','','',''};
-        SS.ARD3.Obj = initiateOB();
-        [SS.PHandMotorVals,SS.PHandContactVals] = updateOB(SS.ARD3.Obj,zeros(1,7));
-        SS.ARD3.Ready = 1;
-        disp('Arduino3 3DHand connected')
-    catch
-        if isfield(SS,'ARD3')
-            if isfield(SS.ARD3,'Obj')
-                if isobject(SS.ARD3.Obj)
-                    fclose(SS.ARD3.Obj);
-                    delete(SS.ARD3.Obj);
-                end
-            end
-        end
-        SS.ARD3.Ready = 0;
-        disp('Arduino3 3DHand failed to connect')
-    end
+%     try
+%         SS.PHandContactLabels = {'thumb_distal','palm_pinky','index_distal','middle_distal'};
+%         SS.PHandMotorLabels = {'thumb_MCP','index_MCP','middle_MCP','ring_MCP','pinky_MCP','wrist_FLEX','wrist_PRO','','','','',''};
+%         SS.ARD3.Obj = initiateOB();
+%         [SS.PHandMotorVals,SS.PHandContactVals] = updateOB(SS.ARD3.Obj,zeros(1,7));
+%         SS.ARD3.Ready = 1;
+%         disp('Arduino3 3DHand connected')
+%     catch
+%         if isfield(SS,'ARD3')
+%             if isfield(SS.ARD3,'Obj')
+%                 if isobject(SS.ARD3.Obj)
+%                     fclose(SS.ARD3.Obj);
+%                     delete(SS.ARD3.Obj);
+%                 end
+%             end
+%         end
+%         SS.ARD3.Ready = 0;
+%         disp('Arduino3 3DHand failed to connect')
+%     end
+    SS.ARD3.Ready = 0;
 
     %HANDi hand connection (jake added on 10/5/17)
-    try
-        SS.HANDiHandContactLabels = {'thumb_distal','palm_pinky','index_distal','middle_distal','pinky_distal'};
-        SS.HANDiHandPositionLabels = {'','','','','','','','',''};
-        SS.HANDiHandMotorLabels = {'thumb_ABD','thumb_MCP','index_MCP','middle_MCP','ring_MCP','pinky_MCP'};
-        SS.ARD4.Obj = initiateHH();
-        [SS.HANDiHandMotorVals,SS.HANDiHandMotorPos,SS.HANDiHandContactVals] = updateHH(SS.ARD4.Obj,zeros(1,6)); %??
-        SS.ARD4.Ready = 1;
-        disp('Arduino4 HANDiHand connected')
-    catch
-        if isfield(SS,'ARD4')
-            if isfield(SS.ARD4,'Obj')
-                if isobject(SS.ARD4.Obj)
-                    fclose(SS.ARD4.Obj);
-                    delete(SS.ARD4.Obj);
-                end
-            end
-        end
-        SS.ARD4.Ready = 0;
-        disp('Arduino4 HANDi Hand failed to connect')
-    end
+%     try
+%         SS.HANDiHandContactLabels = {'thumb_distal','palm_pinky','index_distal','middle_distal','pinky_distal'};
+%         SS.HANDiHandPositionLabels = {'','','','','','','','',''};
+%         SS.HANDiHandMotorLabels = {'thumb_ABD','thumb_MCP','index_MCP','middle_MCP','ring_MCP','pinky_MCP'};
+%         SS.ARD4.Obj = initiateHH();
+%         [SS.HANDiHandMotorVals,SS.HANDiHandMotorPos,SS.HANDiHandContactVals] = updateHH(SS.ARD4.Obj,zeros(1,6)); %??
+%         SS.ARD4.Ready = 1;
+%         disp('Arduino4 HANDiHand connected')
+%     catch
+%         if isfield(SS,'ARD4')
+%             if isfield(SS.ARD4,'Obj')
+%                 if isobject(SS.ARD4.Obj)
+%                     fclose(SS.ARD4.Obj);
+%                     delete(SS.ARD4.Obj);
+%                 end
+%             end
+%         end
+%         SS.ARD4.Ready = 0;
+%         disp('Arduino4 HANDi Hand failed to connect')
+%     end
+    SS.ARD4.Ready = 0;
 
 
 
-    try % StimBoxSetup
-    %     SS.ARD6.Ready = 0; %%% Don't set here....set higher up so it happens once
-        %%%% Case so that init only happens during setup using the
-        %%%% SS.ARD6.Ready
-        if SS.ARD6.Ready == 1
-        else
-        [SS.ARD6.Obj, SS.ARD6.Ready] = StimBox2COM6('init');
-        end
-        SS.ARD6.StimRange = 7; % range of 7mA
-    %     SS.ARD6.StimThresh = 1.55; %% set per person (once at start)
-    %      SS.ARD6.StimMax = SS.ARD6.StimThresh+7; %% 7mA higher than thresh
-    %     %%% Garrison you will need to choose the right max and min for the new
-    %     %%% sensors once the DEKA hand is back. Tyler said he can help you
-    %     %%% thursday. It would be nice to make it so that the same stimulation
-    %     %%% is delivered for the same force on both index and thumb...but that
-    %     %%% might be tricky. Try to do it by hand though. I suggest.
-    %     SS.ARD6.ThumbMax = 180; %% 220 hard max
-    %     SS.ARD6.ThumbMin = 122;
-    %     SS.ARD6.IndexMax = 23;
-    %     SS.ARD6.IndexMin = 15;
-    %     SS.ARD6.PD = 100; % usec
-    %     SS.ARD6.Freq = 50;
-        SS.ARD6.Command = zeros(1,9); %[0,0,SS.ARD6.Freq,SS.ARD6.Freq,SS.ARD6.PD,SS.ARD6.PD,0];
-        if SS.ARD6.Ready == 0
-            if isfield(SS.ARD6,'Obj')
-                if isobject(SS.ARD6.Obj)
-                    fclose(SS.ARD6.Obj);
-                    delete(SS.ARD6.Obj);
-                end
-            end
-            disp('Arduino6 StimBox failed to connect')
-        end
-    catch
-        if isfield(SS, 'ARD6')
-            if isfield(SS.ARD6,'Obj')
-                if isobject(SS.ARD6.Obj)
-                    fclose(SS.ARD6.Obj);
-                    delete(SS.ARD6.Obj);
-                end
-            end
-        end
-        disp('Arduino6 StimBox failed to connect')
-    end
+%     try % StimBoxSetup
+%     %     SS.ARD6.Ready = 0; %%% Don't set here....set higher up so it happens once
+%         %%%% Case so that init only happens during setup using the
+%         %%%% SS.ARD6.Ready
+%         if SS.ARD6.Ready == 1
+%         else
+%         [SS.ARD6.Obj, SS.ARD6.Ready] = StimBox2COM6('init');
+%         end
+%         SS.ARD6.StimRange = 7; % range of 7mA
+%     %     SS.ARD6.StimThresh = 1.55; %% set per person (once at start)
+%     %      SS.ARD6.StimMax = SS.ARD6.StimThresh+7; %% 7mA higher than thresh
+%     %     %%% Garrison you will need to choose the right max and min for the new
+%     %     %%% sensors once the DEKA hand is back. Tyler said he can help you
+%     %     %%% thursday. It would be nice to make it so that the same stimulation
+%     %     %%% is delivered for the same force on both index and thumb...but that
+%     %     %%% might be tricky. Try to do it by hand though. I suggest.
+%     %     SS.ARD6.ThumbMax = 180; %% 220 hard max
+%     %     SS.ARD6.ThumbMin = 122;
+%     %     SS.ARD6.IndexMax = 23;
+%     %     SS.ARD6.IndexMin = 15;
+%     %     SS.ARD6.PD = 100; % usec
+%     %     SS.ARD6.Freq = 50;
+%         SS.ARD6.Command = zeros(1,9); %[0,0,SS.ARD6.Freq,SS.ARD6.Freq,SS.ARD6.PD,SS.ARD6.PD,0];
+%         if SS.ARD6.Ready == 0
+%             if isfield(SS.ARD6,'Obj')
+%                 if isobject(SS.ARD6.Obj)
+%                     fclose(SS.ARD6.Obj);
+%                     delete(SS.ARD6.Obj);
+%                 end
+%             end
+%             disp('Arduino6 StimBox failed to connect')
+%         end
+%     catch
+%         if isfield(SS, 'ARD6')
+%             if isfield(SS.ARD6,'Obj')
+%                 if isobject(SS.ARD6.Obj)
+%                     fclose(SS.ARD6.Obj);
+%                     delete(SS.ARD6.Obj);
+%                 end
+%             end
+%         end
+%         disp('Arduino6 StimBox failed to connect')
+%     end
+    SS.ARD6.Ready = 0;
+    
 else % attemptConnect == 0
     SS.ARD1.Ready = 0;
-    SS.VTStim.Ready = 0;
     SS.ARD3.Ready = 0;
     SS.ARD4.Ready = 0;
     SS.ARD6.Ready = 0;
+    SS.VTStruct.Ready = 0;
 end
 
 function SS = sendDecode2NIP(SS)
