@@ -4,24 +4,17 @@ function [Return] = train_NN_python(x, z, TrainMask, TestMask, ip, port, timeout
     size(x)
     size(z)
     
-    %% Save csv files TODO  
-    disp('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< WE ARE HERE')
-    csvwrite('C:\Users\Administrator\Code\General\MLP\kine_data_train.csv', x(:,TrainMask))
-    csvwrite('C:\Users\Administrator\Code\General\MLP\neural_data_train.csv', z(:,TrainMask))
-    csvwrite('C:\Users\Administrator\Code\General\MLP\kine_data_test.csv', x(:,TestMask))
-    csvwrite('C:\Users\Administrator\Code\General\MLP\neural_data_test.csv', z(:,TestMask))
-    
-    
-
-    
     %% Create socket and train the system
-    socket = py.socket_client.socket_client(ip, port, timeout);
+    socket = py.utah_client.UtahSocketClient();
+    socket.connect("localhost", 54321);
 
-    ans_socket = socket.train('//PNIMATLAB/PNIMatlab_R1/decodeenginepython_DO_NOT_DELETE/config.json');
-    
-    a = ans_socket.char;
-    message = jsondecode(a(3:end-1));
-    disp(message.message)
+    success = socket.train(z(:,TrainMask)', x(:,TrainMask)');
+    socket.disconnect();
+    if success
+        disp("OSU training successful!")
+    else
+        disp("OSU training unsuccessful!")
+    end 
     
     %% Prepare output
     NN_Python.TRAIN.socket = socket;
@@ -33,7 +26,6 @@ function [Return] = train_NN_python(x, z, TrainMask, TestMask, ip, port, timeout
     NN_Python.TRAIN.Zstd = std(z(:,TrainMask)');
     idx  =  NN_Python.TRAIN.Zstd ==0;
     NN_Python.TRAIN.Zstd(idx) = 10^-6;
-    disp('Trained')
     Return = NN_Python.TRAIN;
 end
 
