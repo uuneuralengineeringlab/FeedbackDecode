@@ -200,6 +200,9 @@ switch SS.Map
     case 'aNeural/aEMG'
         SS.MapType.Neural = 'haptixActive';
         SS.MapType.EMG = 'active';
+    case 'N2021/pEMG'
+        SS.MapType.Neural = 'haptix2021';
+        SS.MapType.EMG = 'passive';
     otherwise
         disp('Incorrect map selected...')
         return;
@@ -230,6 +233,7 @@ end
 SS.ARD6.Ready = 0;
 SS = connectARD(SS);
 pause(2);
+
 % initializing LEAP
 SS.LEAP.Ready = 0;
 SS = connectLEAP(SS);
@@ -238,10 +242,22 @@ SS = connectLEAP(SS);
 SS.CyberGlove.Ready = 0;
 SS.CyberGlove.Kinematics = zeros(4,1);
 
+% Initialize SS.shimmerIMU_Ready
+SS.shimmerIMU_Ready = 0;
+
+% Initialize low-cost Nathan Taska wrist TNT 4/7/21
+try
+    SS.LCWrist = initiateTaskaWrist();
+    SS.LCWrist_Ready = 1;
+    disp("Low-Cost Taska Wrist Connected");
+catch
+    disp("No Low-Cost Taska Wrist found, IS THE PATH ADDED???");
+    SS.LCWrist_Ready = 0;
+end
+
 % Initializing loop timing
 SS.BaseLoopTime=0.033; %smw - change to 0.025 at some point?
 % SS.BaseLoopTime=0.02; %dk TASKA testing
-
 SS.MCalcTic = double(xippmex_1_12('time'));
 SS.MCalcTime = 0;
 SS.MTotalTime = 0;
@@ -255,6 +271,7 @@ else
     SS.BakeoffDirect = 0;
 end
 SS.PulseStim = 0;
+SS.ManualType = 'Max'; %use min/max freq/amp in labview table for stim params
 SS.StimWf = zeros(52,1);
 
 % Initializing electrode/chan variables, buffers
@@ -381,6 +398,7 @@ mkdir(fileparts(SS.TaskFile));
 SS.TaskFID = fopen(SS.TaskFile,'w+');
 fwrite(SS.TaskFID,[1;length(SS.Z);length(SS.X);length(SS.T);length(SS.XHat)],'single'); %writing header (1+(96*NumUEAs+528)+12+12+12)
 
+
 % Starting physical (3D) hand file
 if SS.ARD3.Ready
     SS.PHandFile = fullfile(SS.FullDataFolder,['\PHandData_',SS.DataFolder,'.phf']);
@@ -398,6 +416,7 @@ fwrite(SS.ContStimFID,[1;length(SS.AllContStimAmp);length(SS.AllContStimFreq)],'
 SS.CogLoadFile = fullfile(SS.FullDataFolder,['\CogLoad_',SS.DataFolder,'.clf']);
 mkdir(fileparts(SS.CogLoadFile));
 SS.CogLoadFID = fopen(SS.CogLoadFile,'w+');
+
 
 % Start recording and get time
 pause(1)
@@ -645,6 +664,21 @@ if(SS.TASKASensors.Ready)
         SS.TASKASensors.BL.baro(4) = tempP(4);
     end
 end
+
+% IMU Stuff
+% pull live IMU data, compute kinematics, send to decode, etc
+if SS.shimmerIMU_Ready
+    newIMUdata = [];
+    for index = 1:length(SS.shimmerIMU)
+        newstuff = SS.shimmerIMU(index).getdata('c');
+        newIMUdata = [newIMUdata newstuff(end,:)];
+    end
+    SS.shimmerIMUData = newIMUdata;
+    
+end
+
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1137,9 +1171,14 @@ if SS.UDPEvnt.BytesAvailable
                     SS.LEAP.TRAININGDATA = [];
                 end
                 if SS.RecordIMUwithTraining
-                    imuStartRecordTS = imustart(SS.shimmerIMU);
-                    fprintf(SS.CogLoadFID,'TrainingSetStart,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
-                    [SS.XippTS - SS.RecStart, imuStartRecordTS]);
+                    
+                    %imuStartRecordTS = imustart(SS.shimmerIMU);
+                    SS.shimmerIMUTrainFile = fullfile(SS.FullDataFolder,['\IMUTrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
+                    SS.shimmerIMUTrainFID = fopen(SS.shimmerIMUTrainFile,'w+');
+                    fwrite(SS.shimmerIMUTrainFID,length(SS.shimmerIMUData),'single'); %writing header
+                    
+                    %fprintf(SS.CogLoadFID,'TrainingSetStart,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
+                    %    [SS.XippTS - SS.RecStart, imuStartRecordTS]);
                 end
                 disp('Training started')
             case 'StopAcqBaseline'
@@ -1154,7 +1193,7 @@ if SS.UDPEvnt.BytesAvailable
                 fclose(SS.KDFTrainFID);
                 fclose(SS.KEFTrainFID);
                 if(SS.CyberGlove.Ready)
-                	fclose(SS.CyberGlove.FID);
+                    fclose(SS.CyberGlove.FID);
                 end
                 if(SS.LEAP.Ready)
                     fclose(SS.LEAP.FID); % close file, save mat raw data.
@@ -1164,11 +1203,15 @@ if SS.UDPEvnt.BytesAvailable
                 end
                 [~,fname] = fileparts(SS.KDFTrainFile);
                 fwrite(SS.UDPEvnt,sprintf('StopAcqTraining:KDFFile=%s.kdf;',fname));
+                
                 if SS.RecordIMUwithTraining
-                    imuStopRecordTS = imustop(SS.shimmerIMU);
-                    fprintf(SS.CogLoadFID,'TrainingSetEnd,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
-                    [SS.XippTS - SS.RecStart, imuStopRecordTS]);
+                    %imuStopRecordTS = imustop(SS.shimmerIMU);
+                    %fprintf(SS.CogLoadFID,'TrainingSetEnd,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
+                    %[SS.XippTS - SS.RecStart, imuStopRecordTS]);
+                
+                    fclose(SS.shimmerIMUTrainFID);
                 end
+                
                 disp('Training stopped')
             case 'Success'
                 SS.TargOn = 0;
@@ -1274,7 +1317,17 @@ if SS.UDPEvnt.BytesAvailable
                 end
             case 'ConnectIMU'
                 if SS.ConnectIMU % connect shimmer IMU
-                    [SS.shimmerIMU, ~] = imuconnect();
+                    [SS.shimmerIMU, ~,SS.shimmerIMU_Ready] = imuconnect(2);
+                    
+                    % Starting IMU task file
+                    SS.shimmerIMUData = zeros(1,10*length(SS.shimmerIMU));
+                    SS.shimmerIMUTaskFile = fullfile(SS.FullDataFolder,['\IMUTaskData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
+                    SS.shimmerIMUTaskFID = fopen(SS.shimmerIMUTaskFile,'w+');
+                    fwrite(SS.shimmerIMUTaskFID,length(SS.shimmerIMUData),'single'); %writing header
+
+                    for i = 1:length(SS.shimmerIMU)
+                        SS.shimmerIMU(i).start;
+                    end
                 else %  disconnect
                     if isfield(SS,'shimmerIMU')
                         imudisconnect(SS.shimmerIMU);
@@ -1478,7 +1531,7 @@ if SS.UDPCont.BytesAvailable
     
     if(SS.LEAP.Ready)
         [SS.LEAP.Kinematics,SS.LEAP.Connected,SS.LEAP.IsRight,SS.LEAP.Kinematics2,SS.LEAP.Connected2,SS.LEAP.IsRight2, SS.LEAP.Frame] = sampleLeapMotion();
-        disp(SS.LEAP.Kinematics(1))
+%         disp(SS.LEAP.Kinematics(1))
     end
     
     % Checking VREID
@@ -1520,6 +1573,9 @@ if SS.AcqTraining
     if(SS.LEAP.Ready)
         fwrite(SS.LEAP.FID,[SS.XippTS-SS.RecStart;SS.Z;SS.X;SS.T;SS.XHat;SS.LEAP.Kinematics;SS.LEAP.Connected;SS.LEAP.IsRight;SS.LEAP.Kinematics2;SS.LEAP.Connected2;SS.LEAP.IsRight2],'single');
         SS.LEAP.TRAININGDATA = [SS.LEAP.TRAININGDATA SS.LEAP.Frame];
+    end
+    if SS.shimmerIMU_Ready
+        fwrite(SS.shimmerIMUTrainFID,SS.shimmerIMUData,'single');
     end
     SS.TrainCnt = SS.TrainCnt + 1;
 end
@@ -2132,6 +2188,18 @@ if SS.TASKA.Ready
             updateTASKA(SS.TASKA.Obj,pos',SS.TASKA.RestPositions);
             SS.TASKA.Count = 0;
             SS.TASKAMotors = pos;
+            if SS.LCWrist_Ready
+                
+%                 %%% Use to save Kinematic Data to use with LPF %%%  NOT
+%                 IMPLEMENTED IN FEEDBACK DECODE BUT IMPLEMENTED WITH LEAP
+%                 MOTION
+%                 Saved_LPFKinematics(:,r+1) = [CurrX(10);CurrX(12)]; %;kinematics(2)
+%                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                 LPF_Kinematics = mean(Saved_LPFKinematics(:,r+1-length_minus_1:r+1),2); % Takes the mean of the last 30 values(r increases by 1 each loop)
+%                 
+                updateTaskaWrist(SS.LCWrist, [-CurrX(10);CurrX(12)]); % values negative because Left hand
+                
+            end
         else
             SS.TASKA.Count = SS.TASKA.Count+1;
         end
@@ -2262,8 +2330,14 @@ if ~isempty(SS.StimChan)
         case 'Manual'
             if SS.ManualStim %if manual stim button pressed on LV side
                 if SS.PulseStim
-                    SS.ContStimFreq = SS.StimFreqMax;
-                    SS.ContStimAmp = SS.StimAmpMax;
+                    switch SS.ManualType
+                        case 'Min'
+                            SS.ContStimFreq = SS.StimFreqMin;
+                            SS.ContStimAmp = SS.StimAmpMin;
+                        otherwise
+                            SS.ContStimFreq = SS.StimFreqMax;
+                            SS.ContStimAmp = SS.StimAmpMax;
+                    end
                 end
             end
     end
@@ -2414,6 +2488,12 @@ end
 % Saving task kdf
 function SS = saveTask(SS)
 fwrite(SS.TaskFID,[SS.XippTS-SS.RecStart;SS.Z;SS.X;SS.T;SS.XHat],'single'); %saving data to fTask file (*.kdf filespec, see readKDF)
+if SS.shimmerIMU_Ready
+    fwrite(SS.shimmerIMUTaskFID,SS.shimmerIMUData,'single');
+end
+
+
+
 
 
 function SS = savePHand(SS)
