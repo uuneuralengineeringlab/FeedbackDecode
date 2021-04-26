@@ -33,6 +33,7 @@ void loop(void)
       analogWrite(P4,PWM[4]); 
       analogWrite(P5,PWM[5]); 
 
+      /*
       Serial.print(PWM[0]);
       Serial.print(", ");
       Serial.print(PWM[1]);
@@ -46,6 +47,7 @@ void loop(void)
       Serial.print(PWM[5]);
       Serial.print(", ");
       Serial.println();  
+      */
 
   } //end if BAvail>0
   

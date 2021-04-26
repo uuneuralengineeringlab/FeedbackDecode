@@ -1,0 +1,8 @@
+1000
+7800
+7800
+500
+
+The ARD and AST need to be longer than the total movement itself in trainings or else they will be cut off.
+
+DEKA6_4s_GraspExt and _WristCombo have combos with 0.7 s rise, 6.4 s hold, and 0.7 s rise and 4 s holds.

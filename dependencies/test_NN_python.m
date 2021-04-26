@@ -4,10 +4,10 @@ function [prediction] = test_NN_python(neural, kinematic, TRAIN,init, varargin)
 if init
     % config_file = varargin{1};
     % model_file = varargin{2};
-    nbr_decoding_featires = varargin{3};
+    nbr_decoding_features = varargin{3};
     nbr_kinematics = varargin{4};
     % START THE CONTROL
-    success = TRAIN.socket.start_control(nbr_decoding_featires, nbr_kinematics);
+    success = TRAIN.socket.start_control(nbr_decoding_features, nbr_kinematics);
     
     idx = TRAIN.Zstd==0;
     TRAIN.Zstd(idx) = 10^-6;
@@ -25,10 +25,10 @@ if init
 else    
     % PREDICTION
     response = TRAIN.socket.predict((neural' - TRAIN.Zmeans)./ TRAIN.Zstd);
-    response = double(response);
+    response = double(response)';
     if isempty(response)
         disp("Error retreiving OSU prediction!")
-        prediction = zeros(nbr_kinematics, 1);
+        prediction = response;
     else
         prediction = (response .*TRAIN.Xstd' + TRAIN.Xmeans');
     end

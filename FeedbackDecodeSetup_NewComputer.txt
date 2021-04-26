@@ -9,7 +9,8 @@ HOW TO GET A FRESH START FOR FEEDBACKDECODE EXPERIMENTS
 	Or "CNI\General\LabVIEW_Packages\NICAN1850.exe"
 4. Install MATLAB 2020b
 5. Install Pupil Labs version: 
-6. Add C:\Users\Administrator\Box\CNI\General\PSTools to the system path variable and run "psexec" from command line to initialize 
+6. Add Z:\Shared drives\CNI\General\PSTools to the system path variable and run "psexec" from command line to initialize 
+7. Update PatientDatabase.udl using text editor to correct path: "Z:\Shared drives\CNI\General\Databases\PatientDatabase.mdb"
 
 For 2-computer setup, Ethernet adapter must be configured to handle large packets
 1. Control Panel\Network and Internet\Network Connections
