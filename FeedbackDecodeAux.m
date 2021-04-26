@@ -351,9 +351,9 @@ while SS.Run
                                 NN_Python.TRAIN.subZ = Features;
                                 disp('NN_python training finished')
                                 disp('Initializing Model')
-                                z_size =  size(NN_Python.TRAIN.subZ);
-                                x_size =  size(NN_Python.TRAIN.subX);
-                                xhat = test_NN_python(NN_Python.TRAIN.subZ(1,:),NN_Python.TRAIN.subX(1,:), NN_Python.TRAIN, 1, '//PNIMATLAB/PNIMatlab_R1/decodeenginepython_DO_NOT_DELETE/config.json', '//PNIMATLAB/PNIMatlab_R1/decodeenginepython_DO_NOT_DELETE/model.h5',  z_size(1), x_size(1));
+%                                 z_size =  size(NN_Python.TRAIN.subZ);
+%                                 x_size =  size(NN_Python.TRAIN.subX);
+%                                 xhat = test_NN_python(NN_Python.TRAIN.subZ(1,:),NN_Python.TRAIN.subX(1,:), NN_Python.TRAIN, 1, '//PNIMATLAB/PNIMatlab_R1/decodeenginepython_DO_NOT_DELETE/config.json', '//PNIMATLAB/PNIMatlab_R1/decodeenginepython_DO_NOT_DELETE/model.h5',  z_size(1), x_size(1));
                                 disp('Model Initializaed')                                
                                 
                                 [subX,subZ,subK,subT] = parseTrainingData(TF.KEFTrainFile,TF.KDFTrainFile,TF.KalmanMvnts,TF.KalmanGain,TF.KalmanIdxs,TF.Lag);
