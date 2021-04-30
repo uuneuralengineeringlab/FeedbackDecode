@@ -298,6 +298,13 @@ SS.NeuralChanList = mapRippleUEA(1:SS.NumNeuralIdxs,'i2c',SS.MapType.Neural); %l
 SS.EMGChanList = (1:96)+256; %NIP channels for EMG
 [~,SS.AvailEMGIdx] = intersect(SS.EMGChanList,SS.AvailEMG);
 
+% add for VTStim if no neural stim FEs
+VTChans = mapRippleUEA(2:7,'e2c',SS.MapType.Neural);
+VTChans = reshape(VTChans,1,[]);
+if SS.VTStruct.Ready && ~sum(ismember(VTChans, SS.AvailStim)) 
+    SS.AvailStim = [VTChans SS.AvailStim];
+end
+
 %variables sent to labview (jag 10/4/17)
 SS.decodeOutput = zeros(12,1);
 
@@ -1546,7 +1553,7 @@ if SS.UDPCont.BytesAvailable
     % Sending back to LV
     %      disp(num2str(SS.X)); %smw
     
-    if ~isempty(SS.StimChan)        
+    if ~isempty(SS.StimChan) && ismember(SS.StimChan(1), SS.AvailStimList)
         [~,~,SS.StimWfCell] = xippmex_1_12('spike',SS.StimChan(1),1);
         if ~isempty(SS.StimWfCell{1})
 %             SS.StimWf = SS.StimWfCell{1}{1}(:);
@@ -2436,13 +2443,15 @@ if ~isempty(SS.StimChan)
         end
     end
     if any(SS.StimIdx)
-        try
-            xippmex_1_12('stimseq',SS.StimSeq(SS.StimIdx));
-        catch ME
-            if isempty(ME.stack)
-                fprintf('message: %s\r\n',ME.message);
-            else
-                fprintf('message: %s; name: %s; line: %0.0f\r\n',ME.message,ME.stack(1).name,ME.stack(1).line);
+        if all(ismember(SS.StimChan, SS.AvailStimList)) % check especially for VTStim
+            try
+                xippmex_1_12('stimseq',SS.StimSeq(SS.StimIdx));
+            catch ME
+                if isempty(ME.stack)
+                    fprintf('message: %s\r\n',ME.message);
+                else
+                    fprintf('message: %s; name: %s; line: %0.0f\r\n',ME.message,ME.stack(1).name,ME.stack(1).line);
+                end
             end
         end
     end
@@ -2452,11 +2461,13 @@ end
 if SS.VTStruct.Ready %buzzer feedback with arduino nano
     try
         CSF = zeros(6,1);
-        if length(SS.ContStimFreq)<6
-            CSF(1:length(SS.ContStimFreq)) = SS.ContStimFreq;
-        else
-            CSF = SS.ContStimFreq(1:6);
-        end
+        VTElecs = SS.StimElec(SS.StimElec <= 7) - 1; % into correct indices
+        CSF(VTElecs) = SS.ContStimFreq;
+%         if length(SS.ContStimFreq)<6
+%             CSF(1:length(SS.ContStimFreq)) = SS.ContStimFreq;
+%         else
+%             CSF = SS.ContStimFreq(1:6);
+%         end
         SS.VTStruct.Obj.write(CSF);
 %         amp = zeros(6,1);
 %         switch SS.StimMode

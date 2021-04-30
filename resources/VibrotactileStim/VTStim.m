@@ -6,7 +6,7 @@ classdef VTStim < handle
     % VT.write([255,0,100,50,0,0]); pwm output sent to buzzers (pins 3,5,6,9,10,11 on arduino nano)
     %
     % Version: 20210316
-    % Author: Tyler Davis
+    % Author: Tyler Davis & Michael Paskett
     
     properties
         ARD; COMStr; Status;

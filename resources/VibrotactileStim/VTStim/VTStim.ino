@@ -15,7 +15,7 @@ byte PWM[6] = {0,0,0,0,0,0};
 void setup(void)
 {
   // start serial port
-  Serial.begin(250000);
+  Serial.begin(115200);
 }
 
 //Main function

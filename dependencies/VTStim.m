@@ -36,15 +36,19 @@ classdef VTStim < handle
                 end
             end
             delete(instrfind('port',obj.COMStr));
-            obj.ARD = serialport(obj.COMStr,250000,'Timeout',0.005);
-            configureCallback(obj.ARD,"terminator",@obj.read);
-            flush(obj.ARD); pause(0.1);
+%             obj.ARD = serialport(obj.COMStr,115200,'Timeout',0.01);
+            obj.ARD = serial(obj.COMStr,'BaudRate',115200,'Timeout',0.01);
+%             configureCallback(obj.ARD,"terminator",@obj.read);
+%             flush(obj.ARD); pause(0.1);
+            fopen(obj.ARD);
+            flushinput(obj.ARD); pause(0.1);
+            flushoutput(obj.ARD); pause(0.1);
             obj.write([0,0,0,0,0,0]); pause(0.1); %back to defaults
         end
         function close(obj,varargin)
             if isobject(obj.ARD)
                 obj.write([0,0,0,0,0,0]); pause(0.1);
-                delete(obj.ARD);
+                fclose(obj.ARD); delete(obj.ARD);
             end
         end
         function read(obj,varargin)
@@ -61,7 +65,11 @@ classdef VTStim < handle
         function write(obj,varargin)
             pwm = varargin{1}(:);
             pwm(pwm<0) = 0; pwm(pwm>255) = 255;
-            write(obj.ARD,uint8(pwm),'uint8');
+            try
+                fwrite(obj.ARD,uint8(pwm),'uint8');
+            catch
+                disp('error sending...')
+            end
         end
     end    
 end %class
