@@ -41,7 +41,8 @@ Amp = 0;    %base amplitude
 if any(IdxContact)          %if electrode is tied to a contact sensor...
     c0 = DEKASensors(IdxContact); c1 = PastDEKASensors(IdxContact,1); c2 = PastDEKASensors(IdxContact,2); c3 = PastDEKASensors(IdxContact,3);  c4 = PastDEKASensors(IdxContact,4);  c5 = PastDEKASensors(IdxContact,5);
     dcdt0 = c0 - c1; dcdt1 = c1 - c2; dcdt2 = c2 - c3; dcdt3 = c3 - c4; dcdt4 = c4 - c5; %first derivative
-    dc2dt0 = c0 - c2; dc2dt1 = c1 - c3; %second derivative'
+%     dc2dt0 = c0 - c2; dc2dt1 = c1 - c3; %second derivative' (MP 20210504: original was not second derivative)
+    dc2dt0 = dcdt0 - dcdt1; dc2dt1 = dcdt1 - dcdt2; %second derivative (MP added 20210504)
     if(c0 > 0)
         switch ReceptorType
             case 'RA1'
@@ -92,7 +93,8 @@ if any(IdxContact)          %if electrode is tied to a contact sensor...
 elseif any(IdxMotor)        %if electrode is tied to a motor position sensor...
     p0 = DEKAMotors(IdxMotor); p1 = PastDEKAMotors(IdxMotor,1); p2 = PastDEKAMotors(IdxMotor,2); p3 = PastDEKAMotors(IdxMotor,3); p4 = PastDEKAMotors(IdxMotor,4); p5 = PastDEKAMotors(IdxMotor,5);
     dpdt0 = p0 - p1; dpdt1 = p1 - p2; dpdt2 = p2 - p3; dpdt3 = p3 - p4; %first derivative
-    dp2dt0 = p0 - p2; dp2dt1 = p1 - p3; %second derivative
+%     dp2dt0 = p0 - p2; dp2dt1 = p1 - p3; %second derivative
+    dp2dt0 = dpdt0 - dpdt1; dp2dt1 = dpdt1 - dpdt2; %second derivative (MP 20210504 fixed)
     IdxMotorToContact = getContactSensor(find(IdxMotor == 1)); %associated contact sensor for motor sensors
     if(p0 > 0)
         switch ReceptorType
