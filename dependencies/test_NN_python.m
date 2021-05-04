@@ -24,13 +24,15 @@ if init
     prediction = zeros(nbr_kinematics,1);
 else    
     % PREDICTION
-    response = TRAIN.socket.predict((neural' - TRAIN.Zmeans)./ TRAIN.Zstd);
+%     response = TRAIN.socket.predict((neural' - TRAIN.Zmeans)./ TRAIN.Zstd, kinematic');
+    response = TRAIN.socket.predict(neural', kinematic');
     response = double(response)';
     if isempty(response)
         disp("Error retreiving OSU prediction!")
         prediction = response;
     else
-        prediction = (response .*TRAIN.Xstd' + TRAIN.Xmeans');
+%         prediction = (response .*TRAIN.Xstd' + TRAIN.Xmeans');
+        prediction = response;
     end
 end
 

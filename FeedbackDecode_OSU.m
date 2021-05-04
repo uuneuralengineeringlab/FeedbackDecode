@@ -325,7 +325,7 @@ SS.betaValues = SS.betaValues(randperm(numel(SS.betaValues)));
 SS.betaIdx = 1;
 disp({'Beta Values:' num2str(SS.betaValues)})
 
-SS.AdaptOnline.ShouldAdapt = 1;
+SS.AdaptOnline.ShouldAdapt = 1; % set to 0 to avoid Henrique's adaptation code for noisy goal sharing
 SS.AdaptOnline.AdaptationRate = SS.betaValues(SS.betaIdx);
 SS.AdaptOnline.GoalX = [];
 rng('shuffle'); % ensure unique seed for randn
@@ -1651,37 +1651,48 @@ switch SS.KinSrc
                             idx = SS.AdaptOnline.GoalX < -1;
                             SS.AdaptOnline.GoalX(idx) = -1;
                             % Call kalman test with trajectory adapt
-                            xhat = test_NN_python(SS.Z(SS.KalmanIdxs), SS.XHat(SS.KalmanMvnts), ...
-                                                                                 SS.NN_Python.TRAIN, 0);
-                            combine = 0.02;
-                            C = 4;
-
-                            X_filt = combine * xhat + (1 - combine) * SS.XHat(SS.KalmanMvnts);
-                            deltaX_squared = C*(X_filt-xhat).^2;
-                            deltaX_squared(deltaX_squared>1) = 1;
-                            SS.xhat = deltaX_squared.*xhat + (1-deltaX_squared).*X_filt;
-                            try
-                                xhat = SS.xhat;
-                                AdaptOnline = SS.AdaptOnline;
-                                thresh = SS.KalmanThresh;
-                                if AdaptOnline.ShouldAdapt == true && ~isempty(AdaptOnline.GoalX)
-                                    for iXhat = 1:size(xhat,1)
-                                        if AdaptOnline.GoalX(iXhat)>0
-                                            xhat(iXhat) = xhat(iXhat) - AdaptOnline.AdaptationRate *...
-                                            (xhat(iXhat) - ((AdaptOnline.GoalX(iXhat))*(1-thresh(iXhat,1))+thresh(iXhat,1)));
-                                        elseif AdaptOnline.GoalX(iXhat)<0
-                                            xhat(iXhat) = xhat(iXhat) - AdaptOnline.AdaptationRate *...
-                                            (xhat(iXhat) - ((AdaptOnline.GoalX(iXhat))*(1-thresh(iXhat,2))-thresh(iXhat,2)));
-                                        else
-                                            xhat(iXhat) = xhat(iXhat) - AdaptOnline.AdaptationRate *...
-                                            (xhat(iXhat));
-                                        end
-                                    end
-                                end
-                                SS.xhat = xhat;
-                            catch
-                                disp('Something wrong with goal adaptation')
+%                             xhat = test_NN_python(SS.Z(SS.KalmanIdxs), SS.XHat(SS.KalmanMvnts), ...
+%                                                                                  SS.NN_Python.TRAIN, 0);
+                            
+                            % Attempt to pass in target trajectories rather
+                            % than just targets proper TCH 20210430
+                            xd = SS.X(SS.KalmanMvnts);
+                            if ~any(xd) && any(SS.T(SS.KalmanMvnts))
+                                xd = SS.T(SS.KalmanMvnts);
                             end
+                            SS.xhat = test_NN_python(SS.Z(SS.KalmanIdxs), xd, SS.NN_Python.TRAIN, 0);
+                                                                             
+                              % commented out adaptation and noisy goal
+                              % code on 4/13/21 TCH
+%                             combine = 0.02;
+%                             C = 4;
+% 
+%                             X_filt = combine * xhat + (1 - combine) * SS.XHat(SS.KalmanMvnts);
+%                             deltaX_squared = C*(X_filt-xhat).^2;
+%                             deltaX_squared(deltaX_squared>1) = 1;
+%                             SS.xhat = deltaX_squared.*xhat + (1-deltaX_squared).*X_filt;
+%                             try
+%                                 xhat = SS.xhat;
+%                                 AdaptOnline = SS.AdaptOnline;
+%                                 thresh = SS.KalmanThresh;
+%                                 if AdaptOnline.ShouldAdapt == true && ~isempty(AdaptOnline.GoalX)
+%                                     for iXhat = 1:size(xhat,1)
+%                                         if AdaptOnline.GoalX(iXhat)>0
+%                                             xhat(iXhat) = xhat(iXhat) - AdaptOnline.AdaptationRate *...
+%                                             (xhat(iXhat) - ((AdaptOnline.GoalX(iXhat))*(1-thresh(iXhat,1))+thresh(iXhat,1)));
+%                                         elseif AdaptOnline.GoalX(iXhat)<0
+%                                             xhat(iXhat) = xhat(iXhat) - AdaptOnline.AdaptationRate *...
+%                                             (xhat(iXhat) - ((AdaptOnline.GoalX(iXhat))*(1-thresh(iXhat,2))-thresh(iXhat,2)));
+%                                         else
+%                                             xhat(iXhat) = xhat(iXhat) - AdaptOnline.AdaptationRate *...
+%                                             (xhat(iXhat));
+%                                         end
+%                                     end
+%                                 end
+%                                 SS.xhat = xhat;
+%                             catch
+%                                 disp('Something wrong with goal adaptation')
+%                             end
                         end
                     end
                 catch ME2
