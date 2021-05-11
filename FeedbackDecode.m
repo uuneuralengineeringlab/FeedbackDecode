@@ -1035,8 +1035,8 @@ if SS.UDPEvnt.BytesAvailable
                 end
                 if SS.ECGTriggerTargets && ~SS.AcqTraining
                     ecgStartRecordTS = ecgstart(SS.shimmerECG);
-                    fprintf(SS.CogLoadFID,'TargetSetStart,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
-                    [SS.XippTS - SS.RecStart, ecgStartRecordTS]);
+                    fprintf(SS.CogLoadFID,'TargetSetStart,NIPTime=%0.0f,TargRad=%0.2f,ShimmerUnixTime_ms=%0.0f\r\n', ...
+                    [SS.XippTS - SS.RecStart, SS.TargRad, ecgStartRecordTS]);
                 end
             case 'DisableStartTrials'
                 if SS.StartBakeoff
@@ -1050,8 +1050,8 @@ if SS.UDPEvnt.BytesAvailable
                 SS.TargOn = 0;
                 if SS.ECGTriggerTargets && ~SS.AcqTraining
                     ecgStopRecordTS = ecgstop(SS.shimmerECG);
-                    fprintf(SS.CogLoadFID,'TargetSetEnd,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
-                    [SS.XippTS - SS.RecStart, ecgStopRecordTS]);
+                    fprintf(SS.CogLoadFID,'TargetSetEnd,NIPTime=%0.0f,TargRad=%0.2f,ShimmerUnixTime_ms=%0.0f\r\n', ...
+                    [SS.XippTS - SS.RecStart, SS.TargRad, ecgStopRecordTS]);
                 end
             case 'ResetVRE'
                 SS = startVRE(SS);
