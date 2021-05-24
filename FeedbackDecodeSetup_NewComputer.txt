@@ -20,3 +20,8 @@ For 2-computer setup, Ethernet adapter must be configured to handle large packet
 Jumbo packet - 4088 bytes
 Transmit buffers - 16384
 Receive buffers - 4096
+
+Video setup
+* Set up camera in NI Measurement and Automation Explorer (NI-MAX)
+* Make sure profile is correct (video size & encoding) - count number for LabVIEW function RecordAV
+Motion JPEG codec seems to work best...
