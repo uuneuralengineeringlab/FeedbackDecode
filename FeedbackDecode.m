@@ -57,7 +57,7 @@ catch ME
     fprintf(SS.LogFID,'message: %s; name: %s; line: %0.0f\r\n',ME.message,ME.stack(1).name,ME.stack(1).line);
     fprintf('message: %s; name: %s; line: %0.0f\r\n',ME.message,ME.stack(1).name,ME.stack(1).line);
     t.UserData = SS;
-%     stop(t);
+    %     stop(t);
 end
 
 function closeSystem(t,~)
@@ -67,7 +67,7 @@ SS = orderfields(SS);
 assignin('base','SS',SS)
 xippmex_1_12('stim','enable',0); pause(1);
 try
-%     xippmex_1_12('trial',SS.XippOpers,'stopped'); pause(1);
+    %     xippmex_1_12('trial',SS.XippOpers,'stopped'); pause(1);
     xippmex_1_12('trial','stopped'); pause(1);
 catch
     disp('xippmex call to stop recording crashed...')
@@ -79,9 +79,9 @@ fwrite(SS.UDPEvnt,'MatlabReady'); %Tell LV that matlab has shut down
 fwrite(SS.UDPContAux,[zeros(6,1);0;SS.BakeoffDirect],'single')
 fwrite(SS.UDPEvntAux,'Stop:'); %tell MLAux to stop
 fclose(SS.UDPEvnt); fclose(SS.UDPEvntAux); fclose(SS.UDPCont); fclose(SS.UDPContAux); fclose(SS.TaskFID); fclose(SS.ContStimFID); fclose(SS.LogFID);
-delete(SS.UDPEvnt); delete(SS.UDPEvntAux); delete(SS.UDPCont); delete(SS.UDPContAux); 
+delete(SS.UDPEvnt); delete(SS.UDPEvntAux); delete(SS.UDPCont); delete(SS.UDPContAux);
 if isfield(SS,'UDPNIP')
-    fclose(SS.UDPNIP); 
+    fclose(SS.UDPNIP);
     delete(SS.UDPNIP);
 end
 if SS.ARD1.Ready; SS.ARD1.Ready = ctrlRBArduino; end
@@ -100,9 +100,9 @@ if SS.ConnectECG
 end
 if SS.ConnectIMU
     if isfield(SS,'shimmerIMU')
-        imustop(SS.shimmerIMU);
-        pause(0.01);
-        imudisconnect(SS.shimmerIMU);
+        for i = 2:length(SS.shimmerIMU)
+            imudisconnect(SS.shimmerIMU(i));
+        end
     end
 end
 fclose(SS.DEKAFID);
@@ -247,9 +247,10 @@ SS.shimmerIMU_Ready = 0;
 
 % Initialize low-cost Nathan Taska wrist TNT 4/7/21
 try
-    SS.LCWrist = initiateTaskaWrist();
+    [SS.LCWrist, SS.LCWrist_LastKin ] = initiateTaskaWrist();
     SS.LCWrist_Ready = 1;
     disp("Low-Cost Taska Wrist Connected");
+    
 catch
     disp("No Low-Cost Taska Wrist found, IS THE PATH ADDED???");
     SS.LCWrist_Ready = 0;
@@ -301,7 +302,7 @@ SS.EMGChanList = (1:96)+256; %NIP channels for EMG
 % add for VTStim if no neural stim FEs
 VTChans = mapRippleUEA(2:7,'e2c',SS.MapType.Neural);
 VTChans = reshape(VTChans,1,[]);
-if SS.VTStruct.Ready && ~sum(ismember(VTChans, SS.AvailStim)) 
+if SS.VTStruct.Ready && ~sum(ismember(VTChans, SS.AvailStim))
     SS.AvailStim = [VTChans SS.AvailStim];
 end
 
@@ -312,13 +313,13 @@ SS.decodeOutput = zeros(12,1);
 switch SS.NumComp
     case '2 Computers'
         python_path = '\\PNIMATLAB\PNIMatlab_R1\decodeenginepython_DO_NOT_DELETE';
-        try %MP20201223: Compiled MATLAB 2020b was having issues with python. 
+        try %MP20201223: Compiled MATLAB 2020b was having issues with python.
             temppy = py.sys.path;
             clear temppy;
         catch % set environment if compiled MATLAB isn't there.
             pyenv('Version', "\\pnimatlab\Users\Administrator\Anaconda3\envs\decode_env\python.exe");
         end
-            
+        
         if count(py.sys.path,python_path) == 0
             insert(py.sys.path,int32(0),python_path);
         end
@@ -392,10 +393,10 @@ SS.cHP = zeros(4,SS.NumNeuralIdxs); %initial conditions for filter for all chann
 % continuous read in LV will be successful, thus starting the synchronized
 % passes of continuous data between the two systems.
 SS.ContML = [SS.TrainCnt;SS.MCalcTime;SS.MTotalTime;SS.XHat;...
-%     SS.X;length(SS.NeuralElectRatesMA);SS.NeuralElectRatesMA;SS.EMGPwrMA(1:80);SS.ThreshRMS(SS.SelIdx);...
+    %     SS.X;length(SS.NeuralElectRatesMA);SS.NeuralElectRatesMA;SS.EMGPwrMA(1:80);SS.ThreshRMS(SS.SelIdx);...
     SS.X;length(SS.NeuralElectRatesMA);SS.NeuralElectRatesMA;SS.EMGPwrMA;SS.ThreshRMS(SS.SelIdx);...
     length(SS.SelData);SS.SelData;SS.SelWfs(:)];
-% disp(SS.ContML); disp('initsystem')%smw 
+% disp(SS.ContML); disp('initsystem')%smw
 fwrite(SS.UDPCont,typecast(flipud(single(SS.ContML)),'uint8'));
 
 % Starting task file
@@ -431,11 +432,11 @@ try
     SS.XippTS = double(xippmex_1_12('time'));
     SS.RecStart = SS.XippTS; %get time when recording started (skipped if xippmex command fails)
     if SS.StartXippRec %only automatically start recording if command sent from LV
-%         xippmex_1_12('trial',SS.XippOpers,'recording',fullfile(SS.FullDataFolder,[SS.DataFolder,'-']));
-%         xippmex_1_12('trial','recording',fullfile(SS.FullDataFolder,[SS.DataFolder,'-']));
+        %         xippmex_1_12('trial',SS.XippOpers,'recording',fullfile(SS.FullDataFolder,[SS.DataFolder,'-']));
+        %         xippmex_1_12('trial','recording',fullfile(SS.FullDataFolder,[SS.DataFolder,'-']));
         xippmex_1_12('trial','recording',fullfile(SS.FullDataFolder, SS.DataFolder));
         RecStart = SS.RecStart;
-        save(fullfile(SS.FullDataFolder,['\RecStart_',SS.DataFolder,'.mat']),'RecStart')        
+        save(fullfile(SS.FullDataFolder,['\RecStart_',SS.DataFolder,'.mat']),'RecStart')
     end
     pause(1); %set to specified file and start recording (remote control must be selected on Trellis)
 catch ME
@@ -461,7 +462,7 @@ function SS = acqData(SS)
 
 % Getting neural data from xippmex
 SS.DNeural = zeros(SS.NumNeuralIdxs,SS.DLNeuralMax);
- if ~isempty(SS.AvailNeural)
+if ~isempty(SS.AvailNeural)
     [DNeural,DNeuralTS] = xippmex_1_12('cont',SS.AvailNeural,SS.DLNeuralMaxMS,'raw'); SS.CurrTS = double(DNeuralTS); %slow (1.08)
     if ~isempty(DNeural)
         SS.DNeural(SS.AvailNeuralIdx,:) = DNeural; %slow (0.23)
@@ -511,7 +512,7 @@ SS.DLNeural = min(floor(abs(SS.CurrTS-SS.XippTS)),SS.DLNeuralMax); SS.DLEMG = fl
 SS.XippTS = SS.CurrTS;
 if SS.DLNeural
     SS.dNeural = SS.DNeural(:,end-SS.DLNeural+1:end)'; %slow (0.62)
-%     SS.dEMG = SS.DEMG(:,end-SS.DLEMG+1:end)'; %td: removed 0.2 factor since updated xippmex returns uV
+    %     SS.dEMG = SS.DEMG(:,end-SS.DLEMG+1:end)'; %td: removed 0.2 factor since updated xippmex returns uV
     SS.dEMG = 0.2*SS.DEMG(:,end-SS.DLEMG+1:end)'; % smw- question, what is this 0.2; td: Conversion to uV. For some reason, dNeural doesn't need this (may be fixed in newer xippmex.
 end
 
@@ -547,7 +548,7 @@ if SS.NIPSpikes % use NIP spike detection
     for k=1:SS.NumNeuralIdxs
         SS.ApTS = SS.ApCell{k,1};
         if ~isempty(SS.ApWfCell{k})
-%             SS.Wf = SS.ApWfCell{k}{1}(1:48)';
+            %             SS.Wf = SS.ApWfCell{k}{1}(1:48)';
             SS.Wf = SS.ApWfCell{k}(1,1:48)';
         else
             SS.Wf = nan(48,1);
@@ -571,7 +572,7 @@ else % use "standard" spike detection
     SS.NeuralRates = SS.NeuralRates./SS.BaseLoopTime;
 end
 
-% Update spike rate buffer  
+% Update spike rate buffer
 SS.NeuralRatesBuff(:,2:end) = SS.NeuralRatesBuff(:,1:end-1);
 SS.NeuralRatesBuff(:,1) = SS.NeuralRates; %current firing rate for all neural indices
 SS.NeuralRatesMA = mean(SS.NeuralRatesBuff,2); %moving average firing rate for all neural indices
@@ -610,7 +611,7 @@ try
         if(SS.NN.numFeatures == 32)
             Features = SS.EMGPwrMA(SE);
         else
-        	Features = SS.EMGPwrMA;   %first X EMG channels go into buffer for NN
+            Features = SS.EMGPwrMA;   %first X EMG channels go into buffer for NN
         end
     end
     temp = length(Features);
@@ -658,10 +659,10 @@ if(SS.TASKASensors.Ready)
     SS.TASKASensors.IRraw = circshift(SS.TASKASensors.IRraw,-1,2);
     SS.TASKASensors.baroraw = circshift(SS.TASKASensors.baroraw,-1,2);
     %read data
-	[SS.TASKASensors.IRraw(:,end), SS.TASKASensors.baroraw(:,end)] = readTASKASensors_simple(SS.TASKASensors.Obj,SS.TASKASensors.Count);
+    [SS.TASKASensors.IRraw(:,end), SS.TASKASensors.baroraw(:,end)] = readTASKASensors_simple(SS.TASKASensors.Obj,SS.TASKASensors.Count);
     %subtract baseline
     SS.TASKASensors.prevIR = SS.TASKASensors.IR; % TCH 7/7/20
-    SS.TASKASensors.IR = median(SS.TASKASensors.IRraw,2) - SS.TASKASensors.BL.IR;% - 0.05*SS.TASKASensors.BL.IR;   %subtract baseline and small error window 
+    SS.TASKASensors.IR = median(SS.TASKASensors.IRraw,2) - SS.TASKASensors.BL.IR;% - 0.05*SS.TASKASensors.BL.IR;   %subtract baseline and small error window
     SS.TASKASensors.baro = median(SS.TASKASensors.baroraw,2) - SS.TASKASensors.BL.baro;
     SS.TASKASensors.IR(SS.TASKASensors.IR < 0) = 0;
     SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
@@ -678,7 +679,11 @@ if SS.shimmerIMU_Ready
     newIMUdata = [];
     for index = 1:length(SS.shimmerIMU)
         newstuff = SS.shimmerIMU(index).getdata('c');
-        newIMUdata = [newIMUdata newstuff(end,:)];
+        if ~isempty(newstuff)
+            newIMUdata = [newIMUdata newstuff(end,:)];
+        else
+            newIMUdata = [newIMUdata zeros(1,10)];
+        end
     end
     SS.shimmerIMUData = newIMUdata;
     
@@ -705,8 +710,8 @@ if SS.UDPEvnt.BytesAvailable
         switch LVCell{1}
             case 'AlignData'
                 fwrite(SS.UDPEvntAux,sprintf('AlignData:SS.KDFTrainFile=''%s'';SS.AlignType=''%s'';SS.AutoThresh=%1.1f;SS.BadKalmanIdxs=[%s];',...
-                regexprep(SS.KDFTrainFile,':','@'), SS.AlignType,SS.AutoThresh,...
-                regexprep(num2str(SS.BadKalmanIdxs(:)'),'\s+',','))); 
+                    regexprep(SS.KDFTrainFile,':','@'), SS.AlignType,SS.AutoThresh,...
+                    regexprep(num2str(SS.BadKalmanIdxs(:)'),'\s+',',')));
                 disp('Calling AlignData case in AUX Loop')
             case 'ApplyTraining'
                 SS = resetKalman(SS);
@@ -755,7 +760,7 @@ if SS.UDPEvnt.BytesAvailable
                             numBetas = temp(1);
                             numTrialsPerBeta = temp(2);
                             SS.maxBetaIdx = numBetas*numTrialsPerBeta;
-                            tempBetaValues = temp(3:3+numBetas-1); 
+                            tempBetaValues = temp(3:3+numBetas-1);
                             SS.betaValues = [];
                             for iBetas = 1:numBetas
                                 SS.betaValues = [SS.betaValues...
@@ -764,14 +769,14 @@ if SS.UDPEvnt.BytesAvailable
                             SS.betaValues = SS.betaValues(randperm(numel(SS.betaValues)));
                             SS.betaIdx = 1;
                             disp({'Beta Values:' num2str(SS.betaValues)})
-                       case {10,'AdaptKF2'}
+                        case {10,'AdaptKF2'}
                             fwrite(SS.UDPEvntAux,sprintf('KalmanTrainStandard:SS.TrainParamsFile=''%s'';',regexprep(SS.TrainParamsFile,':','@')));
                             disp('Calling KalmanTrainStandard case in AUX Loop')
                             temp = csvread('HybridParams.csv');
                             numBetas = temp(1);
                             numTrialsPerBeta = temp(2);
                             SS.maxBetaIdx = numBetas*numTrialsPerBeta;
-                            tempBetaValues = temp(3:3+numBetas-1); 
+                            tempBetaValues = temp(3:3+numBetas-1);
                             SS.betaValues = [];
                             for iBetas = 1:numBetas
                                 SS.betaValues = [SS.betaValues...
@@ -780,7 +785,7 @@ if SS.UDPEvnt.BytesAvailable
                             SS.betaValues = SS.betaValues(randperm(numel(SS.betaValues)));
                             SS.betaIdx = 1;
                             disp({'Beta Values:' num2str(SS.betaValues)})
-                       case {11,'KF_Short_Goal'}
+                        case {11,'KF_Short_Goal'}
                             fwrite(SS.UDPEvntAux,sprintf('NN_python_classifier_Train:SS.TrainParamsFile=''%s'';',regexprep(SS.TrainParamsFile,':','@')));
                             
                             disp('Calling NN_pythonTrain MLP classifier case in AUX Loop')
@@ -788,7 +793,7 @@ if SS.UDPEvnt.BytesAvailable
                             numBetas = temp(1);
                             numTrialsPerBeta = temp(2);
                             SS.maxBetaIdx = numBetas*numTrialsPerBeta;
-                            tempBetaValues = temp(3:3+numBetas-1); 
+                            tempBetaValues = temp(3:3+numBetas-1);
                             SS.betaValues = [];
                             for iBetas = 1:numBetas
                                 SS.betaValues = [SS.betaValues...
@@ -872,7 +877,7 @@ if SS.UDPEvnt.BytesAvailable
             case 'EndTrial' %acquiring endtrial event
                 GNF = zeros(12,1); GNF(SS.KalmanMvnts) = SS.GoalNoiseFixed;
                 SS.GoalNoiseHistory = [SS.GoalNoiseHistory,GNF];
-                SS.GoalNoiseFixed = SS.GoalNoise*randn(1,1) + zeros(size(SS.T(SS.KalmanMvnts)));                
+                SS.GoalNoiseFixed = SS.GoalNoise*randn(1,1) + zeros(size(SS.T(SS.KalmanMvnts)));
                 SS.betaHistory = [SS.betaHistory SS.betaValues(SS.betaIdx)];
                 SS.betaIdx = SS.betaIdx + 1;
                 if SS.betaIdx>SS.maxBetaIdx
@@ -935,9 +940,9 @@ if SS.UDPEvnt.BytesAvailable
                 
                 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            
+                
             case 'LoadNN'
-                disp('Loading NN .mat file...') 
+                disp('Loading NN .mat file...')
                 load(SS.NN.path)
                 %need to store and load in the following variables
                 try
@@ -973,10 +978,10 @@ if SS.UDPEvnt.BytesAvailable
                     disp('Loaded NN .mat file sucessfully.')
                     
                 catch
-%                     SS.subX = TF.subX;
-%                     SS.subZ = TF.subZ;
-%                     SS.subK = TF.subK;
-%                     SS.subT = TF.subT;
+                    %                     SS.subX = TF.subX;
+                    %                     SS.subZ = TF.subZ;
+                    %                     SS.subK = TF.subK;
+                    %                     SS.subT = TF.subT;
                     SS.KalmanEMG = TF.KalmanEMG;
                     SS.KalmanElects = TF.KalmanElects;
                     SS.KalmanGain = TF.KalmanGain;
@@ -989,16 +994,16 @@ if SS.UDPEvnt.BytesAvailable
                     SS.TRAIN = TF.TRAIN;
                 end
             case 'LoadCyberGlove'
-                disp('Loading CyberGlove .mat calibration file...') 
+                disp('Loading CyberGlove .mat calibration file...')
                 load(SS.CyberGlove.Calibration)
                 %need to store and load in the following variables
                 SS.CyberGlove.Eqs = eqs;
                 SS.CyberGlove.Ready = 1;
                 disp('CyberGlove Calibration loaded correctly.')
-            case 'UpdateStim' %happens when value change in ParamsTable, button selection              
+            case 'UpdateStim' %happens when value change in ParamsTable, button selection
                 disp('Updating stim...')
             case 'ClearStim' %happens when ParamsTable is cleared
-%                 xippmex_1_12('stim','enable',0);
+                %                 xippmex_1_12('stim','enable',0);
                 disp('Clearing stim...')
             case 'ChangeStimMode'
                 switch SS.StimMode
@@ -1010,7 +1015,7 @@ if SS.UDPEvnt.BytesAvailable
                 if SS.ManualStim
                     disp('Starting manual stim...')
                 else
-%                     xippmex_1_12('stim','enable',0);
+                    %                     xippmex_1_12('stim','enable',0);
                     disp('Stopping manual stim...')
                 end
             case 'ChangeStimStep'
@@ -1036,7 +1041,7 @@ if SS.UDPEvnt.BytesAvailable
                 if SS.ECGTriggerTargets && ~SS.AcqTraining
                     ecgStartRecordTS = ecgstart(SS.shimmerECG);
                     fprintf(SS.CogLoadFID,'TargetSetStart,NIPTime=%0.0f,TargRad=%0.2f,ShimmerUnixTime_ms=%0.0f\r\n', ...
-                    [SS.XippTS - SS.RecStart, SS.TargRad, ecgStartRecordTS]);
+                        [SS.XippTS - SS.RecStart, SS.TargRad, ecgStartRecordTS]);
                 end
             case 'DisableStartTrials'
                 if SS.StartBakeoff
@@ -1051,7 +1056,7 @@ if SS.UDPEvnt.BytesAvailable
                 if SS.ECGTriggerTargets && ~SS.AcqTraining
                     ecgStopRecordTS = ecgstop(SS.shimmerECG);
                     fprintf(SS.CogLoadFID,'TargetSetEnd,NIPTime=%0.0f,TargRad=%0.2f,ShimmerUnixTime_ms=%0.0f\r\n', ...
-                    [SS.XippTS - SS.RecStart, SS.TargRad, ecgStopRecordTS]);
+                        [SS.XippTS - SS.RecStart, SS.TargRad, ecgStopRecordTS]);
                 end
             case 'ResetVRE'
                 SS = startVRE(SS);
@@ -1067,21 +1072,21 @@ if SS.UDPEvnt.BytesAvailable
                 disp('Disconnecting VRE...')
             case 'ConARD'
                 disp('Reconnecting serial connections...')
-%                 SS.f = parfeval(@conARD,1,SS);
+                %                 SS.f = parfeval(@conARD,1,SS);
                 SS = connectARD(SS);
                 SS = initTASKA(SS);
                 SS = initTASKASensors(SS);
             case 'CalibrateDEKA'
                 % below is for LabVIEW control
-%                 disp('DEKA Calibration Finished...')
-%                 SS.EvntStr = 'CalDEKAFinished:';
-%                 fwrite(SS.UDPEvnt,SS.EvntStr); %sending back to LV to populate front panel
+                %                 disp('DEKA Calibration Finished...')
+                %                 SS.EvntStr = 'CalDEKAFinished:';
+                %                 fwrite(SS.UDPEvnt,SS.EvntStr); %sending back to LV to populate front panel
                 % below is for MATLAB control
                 disp('Calibrating DEKA/TASKA Sensors...')
                 if (SS.DEKA.Ready)
                     SS.DEKA.BLSensors = calibrateDEKA();
                 end
-%                 SS.DEKA.BLSensors = calibrateDEKA_wristp(); % fixed for wrists in pos mode (dk 2018-03-16)
+                %                 SS.DEKA.BLSensors = calibrateDEKA_wristp(); % fixed for wrists in pos mode (dk 2018-03-16)
                 %fwrite(SS.UDPEvntAux,sprintf('CalibrateDEKA:'));
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             case 'CalibrateTASKA'
@@ -1122,18 +1127,18 @@ if SS.UDPEvnt.BytesAvailable
                 end
                 disp('DEKA communication restarted. You can turn the hand back on now.');
                 % restarting taska as well
-%                 while 1
-%                     TaskaPrompt = input('Connect Taska? (Y/N): ', 's');
-% 
-%                     if length(TaskaPrompt) == 1 && any(TaskaPrompt == 'YyNn10')
-%                         if any(TaskaPrompt == 'Yy1')
-%                             attemptConnection = 1;
-%                         else
-%                             attemptConnection = 0;
-%                         end
-%                         break
-%                     end
-%                 end
+                %                 while 1
+                %                     TaskaPrompt = input('Connect Taska? (Y/N): ', 's');
+                %
+                %                     if length(TaskaPrompt) == 1 && any(TaskaPrompt == 'YyNn10')
+                %                         if any(TaskaPrompt == 'Yy1')
+                %                             attemptConnection = 1;
+                %                         else
+                %                             attemptConnection = 0;
+                %                         end
+                %                         break
+                %                     end
+                %                 end
                 if SS.StartTaska
                     [SS.TASKA.Obj, SS.TASKA.Ready] = openTASKA(); % please don't uncomment without asking TCH first
                 end
@@ -1161,20 +1166,20 @@ if SS.UDPEvnt.BytesAvailable
             case 'StartTraining' %SS.AcqTraining=1;
                 SS.TrainCnt = 1;
                 SS.DateStr = datestr(clock,'HHMMSS');
-                SS.KDFTrainFile = fullfile(SS.FullDataFolder,['\TrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);                
+                SS.KDFTrainFile = fullfile(SS.FullDataFolder,['\TrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
                 SS.KDFTrainFID = fopen(SS.KDFTrainFile,'w+');
                 fwrite(SS.KDFTrainFID,[length(SS.XippTS);length(SS.Z);length(SS.X);length(SS.T);length(SS.XHat)],'single'); %writing header
-                SS.KEFTrainFile = fullfile(SS.FullDataFolder,['\TrainingData_',SS.DataFolder,'_',SS.DateStr,'.kef']);                
+                SS.KEFTrainFile = fullfile(SS.FullDataFolder,['\TrainingData_',SS.DataFolder,'_',SS.DateStr,'.kef']);
                 SS.KEFTrainFID = fopen(SS.KEFTrainFile,'w+');
                 if(SS.CyberGlove.Ready)
                     SS.CyberGlove.TrainFile = fullfile(SS.FullDataFolder,['\CyberGloveTrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
                     SS.CyberGlove.FID = fopen(SS.CyberGlove.TrainFile,'w+');
-                    fwrite(SS.CyberGlove.FID,[length(SS.XippTS);length(SS.Z);length(SS.X);length(SS.T);length(SS.XHat);length(SS.CyberGlove.Kinematics)],'single'); %writing header  
+                    fwrite(SS.CyberGlove.FID,[length(SS.XippTS);length(SS.Z);length(SS.X);length(SS.T);length(SS.XHat);length(SS.CyberGlove.Kinematics)],'single'); %writing header
                 end
                 if(SS.LEAP.Ready)
                     SS.LEAP.TrainFile = fullfile(SS.FullDataFolder,['\LEAPTrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
                     SS.LEAP.FID = fopen(SS.LEAP.TrainFile,'w+');
-                    fwrite(SS.LEAP.FID,[length(SS.XippTS);length(SS.Z);length(SS.X);length(SS.T);length(SS.XHat);length(SS.LEAP.Kinematics);length(SS.LEAP.Connected);length(SS.LEAP.IsRight);length(SS.LEAP.Kinematics2);length(SS.LEAP.Connected2);length(SS.LEAP.IsRight2)],'single'); %writing header  
+                    fwrite(SS.LEAP.FID,[length(SS.XippTS);length(SS.Z);length(SS.X);length(SS.T);length(SS.XHat);length(SS.LEAP.Kinematics);length(SS.LEAP.Connected);length(SS.LEAP.IsRight);length(SS.LEAP.Kinematics2);length(SS.LEAP.Connected2);length(SS.LEAP.IsRight2)],'single'); %writing header
                     SS.LEAP.TRAININGDATA = [];
                 end
                 if SS.RecordIMUwithTraining
@@ -1182,7 +1187,7 @@ if SS.UDPEvnt.BytesAvailable
                     %imuStartRecordTS = imustart(SS.shimmerIMU);
                     SS.shimmerIMUTrainFile = fullfile(SS.FullDataFolder,['\IMUTrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
                     SS.shimmerIMUTrainFID = fopen(SS.shimmerIMUTrainFile,'w+');
-                    fwrite(SS.shimmerIMUTrainFID,length(SS.shimmerIMUData),'single'); %writing header
+                    fwrite(SS.shimmerIMUTrainFID,[length(SS.XippTS);length(SS.shimmerIMU);length(SS.shimmerIMUData)],'single'); %writing header
                     
                     %fprintf(SS.CogLoadFID,'TrainingSetStart,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
                     %    [SS.XippTS - SS.RecStart, imuStartRecordTS]);
@@ -1215,7 +1220,7 @@ if SS.UDPEvnt.BytesAvailable
                     %imuStopRecordTS = imustop(SS.shimmerIMU);
                     %fprintf(SS.CogLoadFID,'TrainingSetEnd,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
                     %[SS.XippTS - SS.RecStart, imuStopRecordTS]);
-                
+                    
                     fclose(SS.shimmerIMUTrainFID);
                 end
                 
@@ -1230,7 +1235,7 @@ if SS.UDPEvnt.BytesAvailable
                     end
                 end
                 if SS.EEGTrigger && (strcmp(SS.KinSrc, 'Decode')) % MDP 20190813
-                    % send trigger 
+                    % send trigger
                     disp('Send EEG Trigger')
                     xippmex_1_12('digout',5,targ2EEGEvent(SS.TargRad, SS.T, 'TargOn'))
                 end
@@ -1282,7 +1287,7 @@ if SS.UDPEvnt.BytesAvailable
                 SS.ExportTrainFile = [SS.DataDir,'\',SS.DataFolder,'\ExportTraining_',SS.DataFolder,'_',SS.DateStr,'.mat'];
                 TF = load(SS.TrainParamsFile);
                 if isfield(TF,'TRAIN')
-%                     SS.SSTRAIN = TF.SSTRAIN;
+                    %                     SS.SSTRAIN = TF.SSTRAIN;
                     SS.TRAIN = TF.TRAIN;
                     if exist(SS.ExportTrainFile,'file')
                         SS.ExportTrainFile = [SS.ExportTrainFile(1:end-4),'_',datestr(clock,'HHMMSS'),'.mat'];
@@ -1295,10 +1300,10 @@ if SS.UDPEvnt.BytesAvailable
                         'LinkedDOF','NeuralChanList','NeuralSurrIdxs','NumDOF','NumNeuralIdxs','NumEMGIdxs','NumNeuralChans','NumNeuralElects','NumUEAs','MapType',...
                         'ReTrain','TRAIN','ThreshMode','ThreshVal','ThreshRMS'); %% Removed SSTRAIN 7/30/18
                     disp('Saved ExportTrain.mat file')
-                    try 
+                    try
                         load2nomad(SS.ExportTrainFile)
                         disp ('Training exported with SS Kalman parameters')
-%                         Do this is AUX  nb bxl_build('runK')
+                        %                         Do this is AUX  nb bxl_build('runK')
                         %disp ('runKalman compiled on nomad')
                     catch
                         disp ('Training export failed')
@@ -1324,14 +1329,14 @@ if SS.UDPEvnt.BytesAvailable
                 end
             case 'ConnectIMU'
                 if SS.ConnectIMU % connect shimmer IMU
-                    [SS.shimmerIMU, ~,SS.shimmerIMU_Ready] = imuconnect(2);
+                    [SS.shimmerIMU, ~,SS.shimmerIMU_Ready] = imuconnect(3);
                     
                     % Starting IMU task file
                     SS.shimmerIMUData = zeros(1,10*length(SS.shimmerIMU));
                     SS.shimmerIMUTaskFile = fullfile(SS.FullDataFolder,['\IMUTaskData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
                     SS.shimmerIMUTaskFID = fopen(SS.shimmerIMUTaskFile,'w+');
-                    fwrite(SS.shimmerIMUTaskFID,length(SS.shimmerIMUData),'single'); %writing header
-
+                    fwrite(SS.shimmerIMUTaskFID, [length(SS.XippTS);length(SS.shimmerIMU);length(SS.shimmerIMUData)],'single'); %writing header
+                    
                     for i = 1:length(SS.shimmerIMU)
                         SS.shimmerIMU(i).start;
                     end
@@ -1363,12 +1368,12 @@ if isfield(SS,'f')
             SS(1).(objFields{k}) = tmpSS(1).(objFields{k});
         end
         % to do: step through field names, case statement
-%         SS.ARD1 = tmpSS.ARD1; 
-%         if SS.ARD1.Ready
-%             disp('3DHand Connected')
-%         else
-%             disp('3DHand Not Connected')
-%         end
+        %         SS.ARD1 = tmpSS.ARD1;
+        %         if SS.ARD1.Ready
+        %             disp('3DHand Connected')
+        %         else
+        %             disp('3DHand Not Connected')
+        %         end
         delete(SS.f)
         SS = rmfield(SS,'f');
     end
@@ -1420,26 +1425,26 @@ if SS.UDPEvntAux.BytesAvailable
                 
                 % smw 1/11/17 for DWPRR decode
                 if isfield(TF, 'normalizerZ')
-                   SS.minZ = TF.minZ;
-                   SS.w = TF.w;
-                   SS.normalizerZ = TF.normalizerZ;
+                    SS.minZ = TF.minZ;
+                    SS.w = TF.w;
+                    SS.normalizerZ = TF.normalizerZ;
                 end
                 
                 %%%%%%%%%%%%%%%%%%%%%%%% COB %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                 SS = sendDecode2NIP(SS);
-%                 
-%                 SS.pIdx = 1;
-%                 SS.pBuffSize = 300;
-%                 SS.pBuff = zeros(length(SS.KalmanMvnts),SS.pBuffSize);
-% %                 SS.pBuff = zeros(length(SS.KalmanIdxs),SS.pBuffSize);
-%                 SS.fH = figure('windowstyle','docked');
-%                 SS.aH = axes('parent',SS.fH);
-%                 SS.pH = plot(SS.aH,1:SS.pBuffSize,SS.pBuff');
-%                 hold on
-%                 SS.pH(end+1) = plot(SS.aH,[SS.pIdx,SS.pIdx],[-1000,1000],'r');
-%                 hold off
+                %                 SS = sendDecode2NIP(SS);
+                %
+                %                 SS.pIdx = 1;
+                %                 SS.pBuffSize = 300;
+                %                 SS.pBuff = zeros(length(SS.KalmanMvnts),SS.pBuffSize);
+                % %                 SS.pBuff = zeros(length(SS.KalmanIdxs),SS.pBuffSize);
+                %                 SS.fH = figure('windowstyle','docked');
+                %                 SS.aH = axes('parent',SS.fH);
+                %                 SS.pH = plot(SS.aH,1:SS.pBuffSize,SS.pBuff');
+                %                 hold on
+                %                 SS.pH(end+1) = plot(SS.aH,[SS.pIdx,SS.pIdx],[-1000,1000],'r');
+                %                 hold off
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                fwrite(SS.UDPEvnt,'TrainingFinished:');           
+                fwrite(SS.UDPEvnt,'TrainingFinished:');
             case 'AuxBakeoffFinished'
                 mj_close;
                 SS.EvntStr = sprintf('BakeoffFinished:');
@@ -1470,7 +1475,7 @@ if SS.UDPEvntAux.BytesAvailable
                     case 'FragileBlock'
                         result = reshape(result,5,[])';
                 end
-                resultFileName = fullfile(SS.FullDataFolder,['\',TestType, '_', SS.DataFolder, '_', SS.DateStr,'.mat']);                
+                resultFileName = fullfile(SS.FullDataFolder,['\',TestType, '_', SS.DataFolder, '_', SS.DateStr,'.mat']);
                 save(resultFileName, 'result', 'TestType');
             case 'AuxCompile2NomadFinished'
                 disp ('Training Compiled on Nomad')
@@ -1489,7 +1494,7 @@ end
 % Read kinematics/targets from LV and sending data back to LV
 function SS = acqCont(SS)
 if SS.UDPCont.BytesAvailable
-%     SS.ContLV = fread(SS.UDPCont,SS.NumDOF*2+6,'single');
+    %     SS.ContLV = fread(SS.UDPCont,SS.NumDOF*2+6,'single');
     SS.ContLV = fread(SS.UDPCont,SS.NumDOF*2+6+13+8+12+4,'single'); %6 target values from MSMS, 13 DEKA sensors, 8 DEKA motors, 12 manual dof
     
     % Kinematics and targets from LV
@@ -1499,24 +1504,24 @@ if SS.UDPCont.BytesAvailable
     % Continuous frequencies for 6 targets on MSMS hand
     SS.ContStimMSMS = SS.ContLV(25:30);
     
-   
+    
     % Continuous sensor values from DEKA (update past values first)
     % no longer being used - JAG - 10/3/17
-%     SS.PastDEKASensors(:,5) = SS.PastDEKASensors(:,4);
-%     SS.PastDEKASensors(:,4) = SS.PastDEKASensors(:,3);
-%     SS.PastDEKASensors(:,3) = SS.PastDEKASensors(:,2);
-%     SS.PastDEKASensors(:,2) = SS.PastDEKASensors(:,1);
-%     SS.PastDEKASensors(:,1) = SS.ContDEKASensors;
-%     SS.ContDEKASensors = SS.ContLV(31:43);
+    %     SS.PastDEKASensors(:,5) = SS.PastDEKASensors(:,4);
+    %     SS.PastDEKASensors(:,4) = SS.PastDEKASensors(:,3);
+    %     SS.PastDEKASensors(:,3) = SS.PastDEKASensors(:,2);
+    %     SS.PastDEKASensors(:,2) = SS.PastDEKASensors(:,1);
+    %     SS.PastDEKASensors(:,1) = SS.ContDEKASensors;
+    %     SS.ContDEKASensors = SS.ContLV(31:43);
     
     
     % Continuous motor values from DEKA (update past values first)
     % no longer being used - JAG - 10/3/17
-%     SS.PastDEKAMotors(:,4) = SS.PastDEKAMotors(:,3);
-%     SS.PastDEKAMotors(:,3) = SS.PastDEKAMotors(:,2);
-%     SS.PastDEKAMotors(:,2) = SS.PastDEKAMotors(:,1);
-%     SS.PastDEKAMotors(:,1) = SS.ContDEKAMotors;
-%     SS.ContDEKAMotors = SS.ContLV(44:51);
+    %     SS.PastDEKAMotors(:,4) = SS.PastDEKAMotors(:,3);
+    %     SS.PastDEKAMotors(:,3) = SS.PastDEKAMotors(:,2);
+    %     SS.PastDEKAMotors(:,2) = SS.PastDEKAMotors(:,1);
+    %     SS.PastDEKAMotors(:,1) = SS.ContDEKAMotors;
+    %     SS.ContDEKAMotors = SS.ContLV(44:51);
     
     % Continuous manual dof checkbox
     SS.ManualDOF = logical(SS.ContLV(52:63));
@@ -1538,7 +1543,7 @@ if SS.UDPCont.BytesAvailable
     
     if(SS.LEAP.Ready)
         [SS.LEAP.Kinematics,SS.LEAP.Connected,SS.LEAP.IsRight,SS.LEAP.Kinematics2,SS.LEAP.Connected2,SS.LEAP.IsRight2, SS.LEAP.Frame] = sampleLeapMotion();
-%         disp(SS.LEAP.Kinematics(1))
+        %         disp(SS.LEAP.Kinematics(1))
     end
     
     % Checking VREID
@@ -1556,9 +1561,9 @@ if SS.UDPCont.BytesAvailable
     if ~isempty(SS.StimChan) && ismember(SS.StimChan(1), SS.AvailStimList)
         [~,~,SS.StimWfCell] = xippmex_1_12('spike',SS.StimChan(1),1);
         if ~isempty(SS.StimWfCell{1})
-%             SS.StimWf = SS.StimWfCell{1}{1}(:);
+            %             SS.StimWf = SS.StimWfCell{1}{1}(:);
             SS.StimWf = SS.StimWfCell{1}(1,:)';
-        end      
+        end
     end
     % send data to labview
     SS.ContML = [SS.TrainCnt;SS.MCalcTime;SS.MTotalTime;SS.XHat;...
@@ -1575,14 +1580,14 @@ if SS.AcqTraining
     fwrite(SS.KDFTrainFID,[SS.XippTS-SS.RecStart;SS.Z;SS.X;SS.T;SS.XHat],'single'); %saving data to fTraining file (*.kdf filespec, see readKDF)
     %write cyberglove KDF file if connected and enabled
     if(SS.CyberGlove.Ready)
-    	fwrite(SS.CyberGlove.FID,[SS.XippTS-SS.RecStart;SS.Z;SS.X;SS.T;SS.XHat;SS.CyberGlove.Kinematics],'single');
+        fwrite(SS.CyberGlove.FID,[SS.XippTS-SS.RecStart;SS.Z;SS.X;SS.T;SS.XHat;SS.CyberGlove.Kinematics],'single');
     end
     if(SS.LEAP.Ready)
         fwrite(SS.LEAP.FID,[SS.XippTS-SS.RecStart;SS.Z;SS.X;SS.T;SS.XHat;SS.LEAP.Kinematics;SS.LEAP.Connected;SS.LEAP.IsRight;SS.LEAP.Kinematics2;SS.LEAP.Connected2;SS.LEAP.IsRight2],'single');
         SS.LEAP.TRAININGDATA = [SS.LEAP.TRAININGDATA SS.LEAP.Frame];
     end
     if SS.shimmerIMU_Ready
-        fwrite(SS.shimmerIMUTrainFID,SS.shimmerIMUData,'single');
+        fwrite(SS.shimmerIMUTrainFID,[SS.XippTS-SS.RecStart,SS.shimmerIMUData],'single');
     end
     SS.TrainCnt = SS.TrainCnt + 1;
 end
@@ -1629,7 +1634,7 @@ switch SS.KinSrc
                 posInd(neutInd&(tempVel([true(size(neutInd)); false(size(neutInd))])>...
                     tempVel([false(size(neutInd));true(size(neutInd))]))) = 1;
                 negInd(neutInd&(tempVel([true(size(neutInd)); false(size(neutInd))])<...
-                    tempVel([false(size(neutInd));true(size(neutInd))]))) = 1;               
+                    tempVel([false(size(neutInd));true(size(neutInd))]))) = 1;
                 
                 SS.xhat(posInd) = SS.xhat(posInd) + tempVel(...
                     [posInd;false(size(posInd))]);
@@ -1647,25 +1652,25 @@ switch SS.KinSrc
                 SS.xhat = kalman_test_bias(SS.Z(SS.KalmanIdxs),SS.TRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0);
             case {6, 'DWPRR'} % smw 1/11/17
                 tempZ = SS.Z(SS.KalmanIdxs)-SS.minZ;
-%                 tempZ = nthroot(tempZ,3);
-                tempZ = tempZ./SS.normalizerZ;  
+                %                 tempZ = nthroot(tempZ,3);
+                tempZ = tempZ./SS.normalizerZ;
                 tempZ = nthroot(tempZ,3);
                 tempZ = [tempZ; 1];
                 tempFeat = (SS.w'*tempZ).^3;
                 SS.xhat = kalman_test(tempFeat,SS.TRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0);
                 
-%                 % add together method:
-%                 tempMat = repmat(eye(numel(SS.KalmanMvnts)),1,2);              
-%                 SS.xhat = tempMat*tempFeat;
+                %                 % add together method:
+                %                 tempMat = repmat(eye(numel(SS.KalmanMvnts)),1,2);
+                %                 SS.xhat = tempMat*tempFeat;
             case {7,'AdaptKF'}
                 % Set Goals with noise
                 Targets = SS.T(SS.KalmanMvnts);
                 idx = Targets == 0;
-%                 if max(Targets + SS.GoalNoiseFixed) > 0.5 %%% if statement added temporarily 7/11/18 for P201701 visit; revert to contents of else statement by next visit and/or intact experiments (TCH)
-%                     SS.AdaptOnline.GoalX = Targets - SS.GoalNoiseFixed; % put noise on other side of target (i.e. side that can be remedied by flexion if only flexion trained)
-%                 else
-                    SS.AdaptOnline.GoalX = Targets + SS.GoalNoiseFixed;
-%                 end
+                %                 if max(Targets + SS.GoalNoiseFixed) > 0.5 %%% if statement added temporarily 7/11/18 for P201701 visit; revert to contents of else statement by next visit and/or intact experiments (TCH)
+                %                     SS.AdaptOnline.GoalX = Targets - SS.GoalNoiseFixed; % put noise on other side of target (i.e. side that can be remedied by flexion if only flexion trained)
+                %                 else
+                SS.AdaptOnline.GoalX = Targets + SS.GoalNoiseFixed;
+                %                 end
                 SS.AdaptOnline.GoalX(idx) = 0;
                 % Check if goals are not over 1 and under -1
                 idx = SS.AdaptOnline.GoalX > 1;
@@ -1689,7 +1694,7 @@ switch SS.KinSrc
                         disp('reset kalman.')
                         kalman_test(zeros(1,12),SS.NN.postKalmanTRAIN,[-1,1],1);
                     end
-                        
+                    
                 end
             case {9,'NN_python'}
                 try
@@ -1698,11 +1703,11 @@ switch SS.KinSrc
                             % Set Goals with noise
                             Targets = SS.T(SS.KalmanMvnts);
                             idx = Targets == 0;
-%                             if max(Targets + SS.GoalNoiseFixed) > 0.5 %%% if statement added temporarily 7/11/18 for P201701 visit; revert to contents of else statement by next visit and/or intact experiments (TCH)
-%                                 SS.AdaptOnline.GoalX = Targets - SS.GoalNoiseFixed; % put noise on other side of target (i.e. side that can be remedied by flexion if only flexion trained)
-%                             else
-                                SS.AdaptOnline.GoalX = Targets + SS.GoalNoiseFixed;
-%                             end
+                            %                             if max(Targets + SS.GoalNoiseFixed) > 0.5 %%% if statement added temporarily 7/11/18 for P201701 visit; revert to contents of else statement by next visit and/or intact experiments (TCH)
+                            %                                 SS.AdaptOnline.GoalX = Targets - SS.GoalNoiseFixed; % put noise on other side of target (i.e. side that can be remedied by flexion if only flexion trained)
+                            %                             else
+                            SS.AdaptOnline.GoalX = Targets + SS.GoalNoiseFixed;
+                            %                             end
                             SS.AdaptOnline.GoalX(idx) = 0;
                             % Check if goals are not over 1 and under -1
                             idx = SS.AdaptOnline.GoalX > 1;
@@ -1711,10 +1716,10 @@ switch SS.KinSrc
                             SS.AdaptOnline.GoalX(idx) = -1;
                             % Call kalman test with trajectory adapt
                             xhat = test_NN_python(SS.Z(SS.KalmanIdxs), SS.XHat(SS.KalmanMvnts), ...
-                                                                                 SS.NN_Python.TRAIN, 0);
+                                SS.NN_Python.TRAIN, 0);
                             combine = 0.02;
                             C = 4;
-
+                            
                             X_filt = combine * xhat + (1 - combine) * SS.XHat(SS.KalmanMvnts);
                             deltaX_squared = C*(X_filt-xhat).^2;
                             deltaX_squared(deltaX_squared>1) = 1;
@@ -1727,13 +1732,13 @@ switch SS.KinSrc
                                     for iXhat = 1:size(xhat,1)
                                         if AdaptOnline.GoalX(iXhat)>0
                                             xhat(iXhat) = xhat(iXhat) - AdaptOnline.AdaptationRate *...
-                                            (xhat(iXhat) - ((AdaptOnline.GoalX(iXhat))*(1-thresh(iXhat,1))+thresh(iXhat,1)));
+                                                (xhat(iXhat) - ((AdaptOnline.GoalX(iXhat))*(1-thresh(iXhat,1))+thresh(iXhat,1)));
                                         elseif AdaptOnline.GoalX(iXhat)<0
                                             xhat(iXhat) = xhat(iXhat) - AdaptOnline.AdaptationRate *...
-                                            (xhat(iXhat) - ((AdaptOnline.GoalX(iXhat))*(1-thresh(iXhat,2))-thresh(iXhat,2)));
+                                                (xhat(iXhat) - ((AdaptOnline.GoalX(iXhat))*(1-thresh(iXhat,2))-thresh(iXhat,2)));
                                         else
                                             xhat(iXhat) = xhat(iXhat) - AdaptOnline.AdaptationRate *...
-                                            (xhat(iXhat));
+                                                (xhat(iXhat));
                                         end
                                     end
                                 end
@@ -1752,7 +1757,7 @@ switch SS.KinSrc
                     disp("NN python prediction failed")
                     SS.xhat = zeros(length(SS.KalmanMvnts),1);
                 end
-        case {10,'AdaptKF2'}
+            case {10,'AdaptKF2'}
                 % Set Goals with noise
                 Targets = SS.T(SS.KalmanMvnts);
                 idx = Targets == 0;
@@ -1764,31 +1769,31 @@ switch SS.KinSrc
                 idx = SS.AdaptOnline.GoalX < -1;
                 SS.AdaptOnline.GoalX(idx) = -1;
                 % Call kalman test with trajectory adapt
-                SS.xhat = kalman_test_adaptation2(SS.Z(SS.KalmanIdxs),SS.TRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0, SS.AdaptOnline, SS.KalmanThresh);        
-        case {11, 'KF_Short_Goal'} %JAG added on 3/27/19 - case for new shared controller with OSU
+                SS.xhat = kalman_test_adaptation2(SS.Z(SS.KalmanIdxs),SS.TRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0, SS.AdaptOnline, SS.KalmanThresh);
+            case {11, 'KF_Short_Goal'} %JAG added on 3/27/19 - case for new shared controller with OSU
                 %replace line below, make sure SS.xhat is populated at the
                 %end of this case execution
                 if isfield(SS, 'TRAIN')
-                        if isfield(SS, 'NN_classifier_Python_trained')
-                            if SS.NN_classifier_Python_trained == 1
-                                ans_client = SS.socket_python.test_classification(SS.Z(SS.KalmanIdxs));
-
-                                char_array = ans_client.char;
-                                trimmed_char_array = [char_array(3:end-2), '}'];
-                                value = jsondecode(trimmed_char_array);
-                                predictions = value.data;
-                                %class_predicted = find(predictions==max(predictions));
-                                movement = SS.NN_classifier_Python.TRAIN.LUT(predictions+1, :);
-                                SS.AdaptOnline.GoalX = movement(SS.KalmanMvnts); 
-
-                                SS.xhat = kalman_test_adaptation_limited(SS.Z(SS.KalmanIdxs),SS.TRAIN,...
-                                                                         [-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0, ...
-                                                                         SS.AdaptOnline, SS.KalmanThresh, ...
-                                                                         SS.NN_classifier_Python.TRAIN.max_movement);
-                                %SS.xhat = kalman_test(SS.Z(SS.KalmanIdxs),SS.TRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0);
-                            end
+                    if isfield(SS, 'NN_classifier_Python_trained')
+                        if SS.NN_classifier_Python_trained == 1
+                            ans_client = SS.socket_python.test_classification(SS.Z(SS.KalmanIdxs));
                             
-                        end  
+                            char_array = ans_client.char;
+                            trimmed_char_array = [char_array(3:end-2), '}'];
+                            value = jsondecode(trimmed_char_array);
+                            predictions = value.data;
+                            %class_predicted = find(predictions==max(predictions));
+                            movement = SS.NN_classifier_Python.TRAIN.LUT(predictions+1, :);
+                            SS.AdaptOnline.GoalX = movement(SS.KalmanMvnts);
+                            
+                            SS.xhat = kalman_test_adaptation_limited(SS.Z(SS.KalmanIdxs),SS.TRAIN,...
+                                [-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0, ...
+                                SS.AdaptOnline, SS.KalmanThresh, ...
+                                SS.NN_classifier_Python.TRAIN.max_movement);
+                            %SS.xhat = kalman_test(SS.Z(SS.KalmanIdxs),SS.TRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0);
+                        end
+                        
+                    end
                 end
                 
         end
@@ -1797,18 +1802,18 @@ switch SS.KinSrc
     case 'COB'
         %%%%%%%%%%%%%%%%%%%%%%%%%%%% COB %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         if SS.UDPNIP.BytesAvailable
-%             disp(SS.UDPNIP.BytesAvailable)
+            %             disp(SS.UDPNIP.BytesAvailable)
             SS.COBFlag = true;
             try
                 SS.xhat = zeros(length(SS.KalmanMvnts),1);
                 SS.xhatout = fread(SS.UDPNIP,[length(SS.KalmanMvnts),1],'double');
-%                 SS.xhatout = fread(SS.UDPNIP,[length(SS.KalmanIdxs),1],'double');
+                %                 SS.xhatout = fread(SS.UDPNIP,[length(SS.KalmanIdxs),1],'double');
                 disp(length(SS.xhatout))
                 
                 if length(SS.xhatout)==length(SS.KalmanMvnts)
-%                     disp(SS.UDPNIP.BytesAvailable)
+                    %                     disp(SS.UDPNIP.BytesAvailable)
                     SS.pBuff(:,SS.pIdx) = SS.xhatout;
-%                     SS.pBuff(:,SS.pIdx) = SS.Z(SS.KalmanIdxs);
+                    %                     SS.pBuff(:,SS.pIdx) = SS.Z(SS.KalmanIdxs);
                     for k=1:size(SS.pBuff,1)
                         set(SS.pH(k),'ydata',SS.pBuff(k,:));
                     end
@@ -1823,7 +1828,7 @@ switch SS.KinSrc
                 disp('e')
             end
             
-            SS.xhatout(length(SS.KalmanMvnts)+1:end) = [];            
+            SS.xhatout(length(SS.KalmanMvnts)+1:end) = [];
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     case 'LEAP'
@@ -1877,11 +1882,11 @@ end
 % applying gains and thresholds
 if ~isempty(SS.xhat)
     
-    if ~SS.COBFlag   
+    if ~SS.COBFlag
         pos = (SS.xhat>=0); %check sign before applying gain/threshold
         
         %%%%%%%%%%%%%%%%%% Dynamic Thresholds %%%%%%%%%%%%%%%%%%%%%%%%%%
-        SS.DynamicThresh = SS.KalmanThresh;       
+        SS.DynamicThresh = SS.KalmanThresh;
         if SS.DynFlag
             SS.DynamicThresh((SS.xhattiming*SS.BaseLoopTime)<0.5,:) = 0.2;
         end
@@ -1892,48 +1897,48 @@ if ~isempty(SS.xhat)
         end
         if any(~pos)
             SS.xhat(~pos) = (SS.xhat(~pos).*SS.KalmanGain(~pos,2)+SS.DynamicThresh(~pos,2))./(1-SS.DynamicThresh(~pos,2)); %apply extension gains/thresholds
-        end   
+        end
         
         %%%%%%%%%%%%%%%%%% Dynamic Thresholds %%%%%%%%%%%%%%%%%%%%%%%%%%
         dynidx = ((SS.xhat>0 & ~pos) | (SS.xhat<0 & pos)); %xhat is below thresholds
         SS.xhattiming(~dynidx) = 0;
         SS.xhattiming(dynidx) = SS.xhattiming(dynidx) + 1;
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                       
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         posidx = strcmp(SS.CtrlMode,'Position')|strcmp(SS.CtrlMode,'Velocity');
         SS.xhat(dynidx & posidx') = 0;
-        SS.xhatout(posidx) = SS.xhat(posidx);                
+        SS.xhatout(posidx) = SS.xhat(posidx);
         
         latidx = strcmp(SS.CtrlMode,'Latching');
-        SS.xhat(dynidx & latidx') = 0;        
+        SS.xhat(dynidx & latidx') = 0;
         SS.xhatout(latidx) = SS.xhat(latidx)*SS.BaseLoopTime.*SS.CtrlSpeed(latidx)'+SS.xhatout(latidx);
-                
-        leaidx = strcmp(SS.CtrlMode,'Leaky');        
+        
+        leaidx = strcmp(SS.CtrlMode,'Leaky');
         cond1 = (SS.xhat<=0 & ~pos) | (SS.xhat>=0 & pos); %xhat is greater than threshold
         cond2 = ((SS.xhat>0 & ~pos) | (SS.xhat<0 & pos)) & SS.xhatout<=0; %xhat is less than threshold and xhatout is negative
-        cond3 = ((SS.xhat>0 & ~pos) | (SS.xhat<0 & pos)) & SS.xhatout>=0; %xhat is less than threshold and xhatout is positive        
+        cond3 = ((SS.xhat>0 & ~pos) | (SS.xhat<0 & pos)) & SS.xhatout>=0; %xhat is less than threshold and xhatout is positive
         SS.xhatout(cond1 & leaidx') = SS.xhat(cond1 & leaidx')*SS.BaseLoopTime.*SS.CtrlSpeed(cond1 & leaidx')'+SS.xhatout(cond1 & leaidx');
         SS.xhatout(cond2 & leaidx') = min(abs(SS.xhat(cond2 & leaidx')*SS.BaseLoopTime.*SS.CtrlSpeed(cond2 & leaidx')')+SS.xhatout(cond2 & leaidx'),0);
-        SS.xhatout(cond3 & leaidx') = max(-abs(SS.xhat(cond3 & leaidx')*SS.BaseLoopTime.*SS.CtrlSpeed(cond3 & leaidx')')+SS.xhatout(cond3 & leaidx'),0);           
+        SS.xhatout(cond3 & leaidx') = max(-abs(SS.xhat(cond3 & leaidx')*SS.BaseLoopTime.*SS.CtrlSpeed(cond3 & leaidx')')+SS.xhatout(cond3 & leaidx'),0);
         
-%         switch SS.CtrlMode{1}
-%             case {0,'Position','Velocity'} %no integration
-%                 SS.xhat(SS.xhat<0 & pos) = 0;
-%                 SS.xhat(SS.xhat>0 & ~pos) = 0;
-%                 SS.xhatout = SS.xhat;               
-%             case {1,'Latching'} %latching
-%                 SS.xhat(SS.xhat<0 & pos) = 0;
-%                 SS.xhat(SS.xhat>0 & ~pos) = 0;
-%                 SS.xhatout = SS.xhat*SS.BaseLoopTime*SS.CtrlSpeed(1)+SS.xhatout;
-%             case {2,'Leaky'} %leaky
-%                 cond1 = (SS.xhat<=0 & ~pos) | (SS.xhat>=0 & pos); %xhat is greater than threshold
-%                 cond2 = ((SS.xhat>0 & ~pos) | (SS.xhat<0 & pos)) & SS.xhatout<=0; %xhat is less than threshold and xhatout is negative
-%                 cond3 = ((SS.xhat>0 & ~pos) | (SS.xhat<0 & pos)) & SS.xhatout>=0; %xhat is less than threshold and xhatout is positive
-%                 SS.xhatout(cond1) = SS.xhat(cond1)*SS.BaseLoopTime*SS.CtrlSpeed(1)+SS.xhatout(cond1);
-%                 SS.xhatout(cond2) = min(abs(SS.xhat(cond2)*SS.BaseLoopTime*SS.CtrlSpeed(1))+SS.xhatout(cond2),0);
-%                 SS.xhatout(cond3) = max(-abs(SS.xhat(cond3)*SS.BaseLoopTime*SS.CtrlSpeed(1))+SS.xhatout(cond3),0);
-%         end     
+        %         switch SS.CtrlMode{1}
+        %             case {0,'Position','Velocity'} %no integration
+        %                 SS.xhat(SS.xhat<0 & pos) = 0;
+        %                 SS.xhat(SS.xhat>0 & ~pos) = 0;
+        %                 SS.xhatout = SS.xhat;
+        %             case {1,'Latching'} %latching
+        %                 SS.xhat(SS.xhat<0 & pos) = 0;
+        %                 SS.xhat(SS.xhat>0 & ~pos) = 0;
+        %                 SS.xhatout = SS.xhat*SS.BaseLoopTime*SS.CtrlSpeed(1)+SS.xhatout;
+        %             case {2,'Leaky'} %leaky
+        %                 cond1 = (SS.xhat<=0 & ~pos) | (SS.xhat>=0 & pos); %xhat is greater than threshold
+        %                 cond2 = ((SS.xhat>0 & ~pos) | (SS.xhat<0 & pos)) & SS.xhatout<=0; %xhat is less than threshold and xhatout is negative
+        %                 cond3 = ((SS.xhat>0 & ~pos) | (SS.xhat<0 & pos)) & SS.xhatout>=0; %xhat is less than threshold and xhatout is positive
+        %                 SS.xhatout(cond1) = SS.xhat(cond1)*SS.BaseLoopTime*SS.CtrlSpeed(1)+SS.xhatout(cond1);
+        %                 SS.xhatout(cond2) = min(abs(SS.xhat(cond2)*SS.BaseLoopTime*SS.CtrlSpeed(1))+SS.xhatout(cond2),0);
+        %                 SS.xhatout(cond3) = max(-abs(SS.xhat(cond3)*SS.BaseLoopTime*SS.CtrlSpeed(1))+SS.xhatout(cond3),0);
+        %         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     end %COBFlag
     
@@ -1978,26 +1983,26 @@ if SS.DEKA.Ready
                 CurrX = zeros(SS.NumDOF,1);
         end
         %temp fix (10/4/17 - jag) - simple PID control for DEKA wrist in velocity
-            switch SS.KinSrc
-                case {'Training','Decode','COB','Manual'}
-                    [CurrX(12), CurrX(10)] = wristPositionToVelocity(CurrX(12),CurrX(10),SS.DEKA.RightHand);
-%                     [CurrX(12), CurrX(10)] = wristPositionToVelocity_dk(CurrX(12),CurrX(10),SS.DEKA.RightHand); % might be faster, but less precise 20180413-dk
-            end
+        switch SS.KinSrc
+            case {'Training','Decode','COB','Manual'}
+                [CurrX(12), CurrX(10)] = wristPositionToVelocity(CurrX(12),CurrX(10),SS.DEKA.RightHand);
+                %                     [CurrX(12), CurrX(10)] = wristPositionToVelocity_dk(CurrX(12),CurrX(10),SS.DEKA.RightHand); % might be faster, but less precise 20180413-dk
+        end
         %end temp fix % removed for wrists in pos mode (dk 2018-03-16)
-            
+        
         %update DEKA position & get updated values of motors & sensors
         [motors, sensors] = updateDEKA(CurrX,SS.DEKA.RightHand);
-%         [motors, sensors] = updateDEKA_wristp(CurrX,SS.DEKA.Neutral,SS.DEKA.RightHand); % wrist in pos mode (dk 2018-03-16)
+        %         [motors, sensors] = updateDEKA_wristp(CurrX,SS.DEKA.Neutral,SS.DEKA.RightHand); % wrist in pos mode (dk 2018-03-16)
         %save raw data
         SS.DEKA.RAW.sensors = sensors;
         SS.DEKA.RAW.motors = motors;
-%         disp(SS.DEKA.RAW.sensors)
+        %         disp(SS.DEKA.RAW.sensors)
         %scale each motor to bounds of 0 to 1 or -1 to 1
-        motors(1) = setLimit(motors(1)/7680,[-1,1]); 
-        motors(2) = setLimit(motors(2)/3520,[-1,1]); 
-        motors(3) = setLimit(motors(3)/5760,[0,1]); 
-        motors(4) = setLimit(motors(4)/5760,[0,1]); 
-        motors(7) = setLimit(motors(7)/6400,[0,1]); 
+        motors(1) = setLimit(motors(1)/7680,[-1,1]);
+        motors(2) = setLimit(motors(2)/3520,[-1,1]);
+        motors(3) = setLimit(motors(3)/5760,[0,1]);
+        motors(4) = setLimit(motors(4)/5760,[0,1]);
+        motors(7) = setLimit(motors(7)/6400,[0,1]);
         motors(8) = setLimit(motors(8)/5760,[0,1]);
         %interpolate between calibration component to normalize values
         %based on movement
@@ -2060,7 +2065,7 @@ try
         otherwise
             CurrX = zeros(SS.NumDOF,1);
     end
-        
+    
     if SS.StartBakeoff
         if SS.UDPContAux.BytesAvailable
             sensors = fread(SS.UDPContAux,17,'single');
@@ -2085,7 +2090,7 @@ try
                 case 'Luke'
                     SS.VRECommand.ref_pos(1:6) = MSMS2Luke(CurrX);
                 case 'MPL'
-                    SS.VRECommand.ref_pos(1:13) = MSMS2VRE(CurrX);                   
+                    SS.VRECommand.ref_pos(1:13) = MSMS2VRE(CurrX);
             end
             
             SS.VREInfo.mocap = mj_get_mocap;
@@ -2127,7 +2132,7 @@ if SS.ARD3.Ready
         pos(pos<-1) = -1;
         pos(pos>1) = 1;
         [SS.PHandMotorVals,SS.PHandContactVals] = updateOB(SS.ARD3.Obj,pos);
-%         clc; disp(SS.PHandContactVals')
+        %         clc; disp(SS.PHandContactVals')
     catch ME
         disp('3DHand Ard3 connection failed at run testing...');
         if isempty(ME.stack)
@@ -2174,16 +2179,16 @@ if SS.TASKA.Ready
                 CurrX = zeros(SS.NumDOF,1);
                 %%%%
         end
-               
+        
         % Index, middle, ring, little, thumbF, thumbAb
         pos = [CurrX(2),CurrX(3),CurrX(4),CurrX(5),CurrX(1),-CurrX(6)];
-%         pos = [SS.XHat(2),SS.XHat(3),SS.XHat(4),SS.XHat(5),SS.XHat(1),-SS.XHat(6)];
+        %         pos = [SS.XHat(2),SS.XHat(3),SS.XHat(4),SS.XHat(5),SS.XHat(1),-SS.XHat(6)];
         if(SS.TASKASensors.SharedControl.Ready)
             %if shared control is enabled, taska control is shared between
             %human and computer, where computer goal is determined on TASKA
             %IR and baro sensors
             HumanGoal = pos;    %output from decode
-            ComputerGoal = calcComputerGoal(SS.TASKASensors,SS.TASKAMotors); 
+            ComputerGoal = calcComputerGoal(SS.TASKASensors,SS.TASKAMotors);
             pos = shareTASKAControl(HumanGoal, ComputerGoal,SS.TASKASensors);
             pos(~SS.TASKASensors.SharedEnabled) = HumanGoal(~SS.TASKASensors.SharedEnabled);
             pos(4) = pos(3); % link ring and pinky
@@ -2197,14 +2202,16 @@ if SS.TASKA.Ready
             SS.TASKAMotors = pos;
             if SS.LCWrist_Ready
                 
-%                 %%% Use to save Kinematic Data to use with LPF %%%  NOT
-%                 IMPLEMENTED IN FEEDBACK DECODE BUT IMPLEMENTED WITH LEAP
-%                 MOTION
-%                 Saved_LPFKinematics(:,r+1) = [CurrX(10);CurrX(12)]; %;kinematics(2)
-%                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                 LPF_Kinematics = mean(Saved_LPFKinematics(:,r+1-length_minus_1:r+1),2); % Takes the mean of the last 30 values(r increases by 1 each loop)
-%                 
-                updateTaskaWrist(SS.LCWrist, [-CurrX(10);CurrX(12)]); % values negative because Left hand
+                %                 %%% Use to save Kinematic Data to use with LPF %%%  NOT
+                %                 IMPLEMENTED IN FEEDBACK DECODE BUT IMPLEMENTED WITH LEAP
+                %                 MOTION
+                %                 Saved_LPFKinematics(:,r+1) = [CurrX(10);CurrX(12)]; %;kinematics(2)
+                %                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %                 LPF_Kinematics = mean(Saved_LPFKinematics(:,r+1-length_minus_1:r+1),2); % Takes the mean of the last 30 values(r increases by 1 each loop)
+                %
+                %                 updateTaskaWrist(SS.LCWrist, [-CurrX(10);CurrX(12)]); % values negative because Left hand
+                
+                SS.LCWrist_LastKin = taskamover(SS.LCWrist, SS.LCWrist_LastKin, [CurrX(10) ; -CurrX(12)]);
                 
             end
         else
@@ -2367,7 +2374,7 @@ if ~isempty(SS.StimChan)
                     disp('Dont use MSMS stim mode');
                 end
             case 'VRE'
-                if SS.VREStatus                    
+                if SS.VREStatus
                     if strcmp(SS.VREInfo.HandType,'MPL')
                         SS.ContStimFreq(k) = VRESensor2Freq(SS.VREInfo.sensors.contact,SS.VREContactLabelsMPL,SS.VREInfo.sensors.motor_pos,SS.VREMotorLabelsMPL,SS.VREInfo.robot.motor_limit,SS.StimCell(k,:),'MPL');
                         SS.ContStimAmp(k) = VRESensor2Amp(SS.VREInfo.sensors.contact,SS.VREContactLabelsMPL,SS.VREInfo.sensors.motor_pos,SS.VREMotorLabelsMPL,SS.VREInfo.robot.motor_limit,SS.StimCell(k,:),'MPL');
@@ -2397,7 +2404,7 @@ if ~isempty(SS.StimChan)
                 [SS.ContStimFreq(k), SS.ContStimAmp(k)] = DEKA2Stim(SS.ContDEKASensors,SS.PastDEKASensors,SS.DEKASensorLabels,SS.ContDEKAMotors,SS.PastDEKAMotors,SS.DEKAMotorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
             case 'Analog(DEKA)'
                 [SS.ContStimFreq(k), SS.ContStimAmp(k)] = analogDEKA2Stim(SS.AnalogSensors,SS.ContDEKAMotors,SS.PastDEKAMotors,SS.DEKAMotorLabels,SS.StimCell(k,:));
-        end                
+        end
         
         % Sending to nip
         StimStepSizeIdx = SS.StimStepSize(floor((SS.StimChan(k)-1)/128)+1); %index into SS.StimStepSizeuA
@@ -2426,10 +2433,10 @@ if ~isempty(SS.StimChan)
                 SS.StimSeq(k).period = floor(30000./CSF); %period is in # of 33 us samples between successive start times of successive pulses. Was set to NextPulseDiff, but changed to frequency.
                 SS.StimSeq(k).repeats = ceil(SS.BaseLoopTime*CSF);
                 if NextPulseDiff==1 && CSF<(1/SS.BaseLoopTime)
-%                     fprintf('immed')
+                    %                     fprintf('immed')
                     SS.StimSeq(k).action = 'immed';
                 else
-%                     fprintf('curcyc')
+                    %                     fprintf('curcyc')
                     SS.StimSeq(k).action = 'curcyc';
                 end
                 SS.StimSeq(k).seq(1).length = floor(SS.StimDur(k)*30);
@@ -2463,25 +2470,25 @@ if SS.VTStruct.Ready %buzzer feedback with arduino nano
         CSF = zeros(6,1);
         VTElecs = SS.StimElec(SS.StimElec <= 7) - 1; % into correct indices
         CSF(VTElecs) = SS.ContStimFreq;
-%         if length(SS.ContStimFreq)<6
-%             CSF(1:length(SS.ContStimFreq)) = SS.ContStimFreq;
-%         else
-%             CSF = SS.ContStimFreq(1:6);
-%         end
+        %         if length(SS.ContStimFreq)<6
+        %             CSF(1:length(SS.ContStimFreq)) = SS.ContStimFreq;
+        %         else
+        %             CSF = SS.ContStimFreq(1:6);
+        %         end
         SS.VTStruct.Obj.write(CSF);
-%         amp = zeros(6,1);
-%         switch SS.StimMode
-%             case 'VRE'
-%                 if SS.VREStatus
-%                     switch SS.VREInfo.HandType
-%                         case 'MPL'
-%                             amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.VTStruct.Idx2ContactMPL),SS.VREInfo.sensors.motor_pos(SS.VTStruct.Idx2MotorMPL),SS.VREInfo.robot.motor_limit(SS.VTStruct.Idx2MotorMPL,:),'MPL');
-%                         otherwise
-%                             amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.VTStruct.Idx2ContactLuke),SS.VREInfo.sensors.motor_pos(SS.VTStruct.Idx2MotorLuke),SS.VREInfo.robot.motor_limit(SS.VTStruct.Idx2MotorLuke,:),'Luke');
-%                     end
-%                 end
-%         end
-%         SS.VTStruct.Obj.write = amp;
+        %         amp = zeros(6,1);
+        %         switch SS.StimMode
+        %             case 'VRE'
+        %                 if SS.VREStatus
+        %                     switch SS.VREInfo.HandType
+        %                         case 'MPL'
+        %                             amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.VTStruct.Idx2ContactMPL),SS.VREInfo.sensors.motor_pos(SS.VTStruct.Idx2MotorMPL),SS.VREInfo.robot.motor_limit(SS.VTStruct.Idx2MotorMPL,:),'MPL');
+        %                         otherwise
+        %                             amp = VRESensor2ARD(SS.VREInfo.sensors.contact(SS.VTStruct.Idx2ContactLuke),SS.VREInfo.sensors.motor_pos(SS.VTStruct.Idx2MotorLuke),SS.VREInfo.robot.motor_limit(SS.VTStruct.Idx2MotorLuke,:),'Luke');
+        %                     end
+        %                 end
+        %         end
+        %         SS.VTStruct.Obj.write = amp;
     catch ME
         disp('VTStim write failed...');
         if isempty(ME.stack)
@@ -2500,7 +2507,9 @@ end
 function SS = saveTask(SS)
 fwrite(SS.TaskFID,[SS.XippTS-SS.RecStart;SS.Z;SS.X;SS.T;SS.XHat],'single'); %saving data to fTask file (*.kdf filespec, see readKDF)
 if SS.shimmerIMU_Ready
-    fwrite(SS.shimmerIMUTaskFID,SS.shimmerIMUData,'single');
+    if ~isempty(SS.shimmerIMUData)
+        fwrite(SS.shimmerIMUTaskFID,[SS.XippTS-SS.RecStart,SS.shimmerIMUData],'single');
+    end
 end
 
 
@@ -2619,7 +2628,7 @@ else
     SS.StimFreqMax(idx) = [];
     SS.StimDur(idx) = [];
     
-    SS.ContStimAmp = zeros(length(SS.StimElec),1);    
+    SS.ContStimAmp = zeros(length(SS.StimElec),1);
     SS.ContStimFreq = zeros(length(SS.StimElec),1);
     SS.ContStimMSMS = zeros(6,1);
 end
@@ -2671,7 +2680,7 @@ switch SS.KalmanType
     case {3,'LinSVReg'} % linSVReg
         sameLead =  [197:202, 207:212, 217:222,...
             227:232, 237:242, 247:252, 257:262, 267:272];
-
+        
         %SS.KalmanIdxs = [197:202, 207:212, 217:222,...
         %    227:232, 237:242, 247:252, 257:262, 267:272];
         SS.subZ = zeros(length(sameLead)+1,10);
@@ -2707,7 +2716,7 @@ switch SS.KalmanType
         SS.xhat = kalman_test(SS.subZ,SS.TRAIN,[-1,1],1); %initializing persistent variables in kalman_test.m
         %         end
     case {7,'AdaptKF'}
-        SS.TRAIN = kalman_train(SS.subX,SS.subZ); 
+        SS.TRAIN = kalman_train(SS.subX,SS.subZ);
         SS.xhat = kalman_test_adaptation(SS.subZ,SS.TRAIN,[-1,1],1, SS.AdaptOnline);
     case {8, 'NN'}
         SS.TRAIN = kalman_train(SS.subX,SS.subZ);
@@ -2730,11 +2739,11 @@ switch SS.KalmanType
             disp("Error resetting the model, check if the python socket is running")
         end
     case {10,'AdaptKF2'}
-        SS.TRAIN = kalman_train(SS.subX,SS.subZ); 
+        SS.TRAIN = kalman_train(SS.subX,SS.subZ);
         SS.xhat = kalman_test_adaptation2(SS.subZ,SS.TRAIN,[-1,1],1, SS.AdaptOnline);
     case {11,'KF_Short_Goal'}
         SS.NN_classifier_Python_trained = 0;
-        SS.TRAIN = kalman_train(SS.subX,SS.subZ); 
+        SS.TRAIN = kalman_train(SS.subX,SS.subZ);
         SS.xhat = kalman_test_adaptation_limited(SS.subZ,SS.TRAIN,[-1,1],1, SS.AdaptOnline,0, 0);
 end
 SS.xhatout = zeros(size(SS.xhat));
@@ -2754,7 +2763,7 @@ for k=1:length(SS.AvailStimHS)
             xippmex_1_12('stim','enable',0);
             xippmex_1_12('stim','res',SS.AvailStimHS(k),StimIdx)
             xippmex_1_12('stim','enable',1);
-
+            
         end
     end
 end
@@ -2789,7 +2798,7 @@ function SS = initDEKA(SS)
 % SS.DEKASensorLabels = {'IndLat';'IntTip';'MidTip';'RinTip';...
 %     'PinkyTip';'PalmDist';'PalmProx';'HandEdge';'HandDorsal';...
 %     'ThuUlnar';'ThuRadial';'ThuTip';'ThuDorsal'};
-% 
+%
 % SS.DEKAMotorLabels = {'WriRot';'WriPitch';'IndFlex';'MRPFlex';...
 %     'ThuRawPitch';'ThuRawYaw';'ThuYaw';'ThuPitch'};
 
@@ -2826,7 +2835,7 @@ lkmex('start'); %starting deka communication (must run before hand is turned on)
 function SS = initTASKA(SS)
 % while 1
 %     connPrompt = input('Connect Taska? (Y/N): ', 's');
-%     
+%
 %     if length(connPrompt) == 1 && any(connPrompt == 'YyNn10')
 %         if any(connPrompt == 'Yy1')
 %             attemptConnection = 1;
@@ -2882,7 +2891,7 @@ end
 function SS = initTASKASensors(SS)
 % while 1
 %     connPrompt = input('Connect Taska Sensors? (Y/N): ', 's');
-%     
+%
 %     if length(connPrompt) == 1 && any(connPrompt == 'YyNn10')
 %         if any(connPrompt == 'Yy1')
 %             attemptConnection = 1;
@@ -2942,7 +2951,7 @@ if SS.StartTaskaSens
 else % do not attempt connection
     SS.TASKASensors.Ready = 0;
 end
-   
+
 function SS = initAnalogSensors(SS)
 % SS.analogSensors =
 % {'Thumb(t)';'Thumb(t-1)';'Thumb(t-2)';'Thumb(t-3)';'Thumb(t-4)';
@@ -2991,7 +3000,7 @@ if ~isempty(SS.DigIO_TS)
                 fprintf(SS.CogLoadFID,'UnknownEvent,NIPTime=%0.0f,TargRad=%0.2f,ParallelID=%0.0f\r\n', ...
                     [SS.DigIO_TS(i) - SS.RecStart, SS.TargRad, double(SS.DigEvents(i).parallel)]);
         end
-    end
+    end 
 end
 
 % Secondary Task
@@ -3001,7 +3010,7 @@ if SS.TargOn % if there is an active target
             if SS.CurrTS > SS.CogLoadNextStimTS
                 % start next stimulus
                 SS.CogLoadStimOn = 1;
-                xippmex_1_12('digout',[1, 5],[1, targ2EEGEvent(SS.TargRad, SS.T, 'BuzzOn')]); 
+                xippmex_1_12('digout',[1, 5],[1, targ2EEGEvent(SS.TargRad, SS.T, 'BuzzOn')]);
                 SS.CogLoadNextStimOffTS = SS.CurrTS + SS.SecondaryTaskStimDur*30; % *30 for NIPTime
                 SS.CogLoadNextStimTS = SS.CurrTS + ...
                     30*(SS.SecondaryTaskMinBetweenStim + rand*SS.SecondaryTaskVarBetweenStim);
@@ -3157,21 +3166,21 @@ SS.PHandMotorLabelsLuke(1:3) = SS.VREMotorLabelsLuke([4,5,6]);
 SS.VREIDLabels = {'Luke','Bakeoff11',[12,11,0,30,30];... %[motor_count, contact_sensor_count, nmocap, nq, nv] %smw: this should be in init system not init stim
     'Luke','Bakeoff21',[nan,nan,nan,nan,nan];...
     %     'Luke','Bakeoff31',[6,11,10,85,75];... %smw bakeoff3.1 orig
-%     'Luke','Bakeoff31',[6,11,10,94,84];... % smw (updates to 3.1 ID based on dk Bakeoff_Task31_Modded_XYRestrict_left.xml 7/5/16)
+    %     'Luke','Bakeoff31',[6,11,10,94,84];... % smw (updates to 3.1 ID based on dk Bakeoff_Task31_Modded_XYRestrict_left.xml 7/5/16)
     %     'Luke','Bakeoff31',[6,11,10,85,75];... % smw (updates to 3.1 ID based on dk Bakeoff_Task31_Modded_left.xml 7/5/16)
-%     'Luke','Bakeoff31',[6,11,10,31,30];... % td (updates to 3.1 ID based on ReallyFinal code 7/18/16)
+    %     'Luke','Bakeoff31',[6,11,10,31,30];... % td (updates to 3.1 ID based on ReallyFinal code 7/18/16)
     'Luke','Bakeoff31',[6,11,10,29,28];... % DK (update for MuJoCo v1.50; 9/6/2017)
-%     'Luke','Bakeoff32',[6,11,6,94,83];...
+    %     'Luke','Bakeoff32',[6,11,6,94,83];...
     'Luke','Bakeoff32',[6,11,6,92,81];... % DK (update for MuJoCo v1.50; 9/6/2017)
-%     'Luke','LukeEmpty',[6,11,1,22,21];...
+    %     'Luke','LukeEmpty',[6,11,1,22,21];...
     'Luke','LukeEmpty',[6,11,1,20,19];... % DK (update for MuJoCo v1.50; 9/6/2017)
     'MPL','MPLEmpty',[13,19,1,29,28];...
     'MPL','MPL?',[13,19,1,57,52];...
     'MPL','MPLBasic',[13,19,1,50,46];...
     'MPL','MPLTarg',[nan,nan,nan,nan,nan];...
-%     'Luke','LukeBasic',[6,11,1,43,39];...
+    %     'Luke','LukeBasic',[6,11,1,43,39];...
     'Luke','LukeBasic',[6,11,1,41,37];... % DK (update for MuJoCo v1.50; 9/6/2017)
-%     'Luke','FragileBlock',[6,11,1,36,33];...
+    %     'Luke','FragileBlock',[6,11,1,36,33];...
     'Luke','FragileBlock',[6,11,1,34,31];... % DK (update for MuJoCo v1.50; 9/6/2017)
     'Luke','mBBT',[6,11,1,132,115]; % DK (added mBBT; 11/29/2017)
     };
@@ -3242,9 +3251,9 @@ try
     end
     SS.DateStr = datestr(clock,'HHMMSS');
     if isempty(SS.VREInfo.IDLabel)
-        SS.VREFile = fullfile(SS.FullDataFolder,['\VREData_',SS.DataFolder,'_',SS.DateStr,'.vre']);        
+        SS.VREFile = fullfile(SS.FullDataFolder,['\VREData_',SS.DataFolder,'_',SS.DateStr,'.vre']);
     else
-        SS.VREFile = fullfile(SS.FullDataFolder,['\VREData_',SS.VREInfo.IDLabel,'_',SS.DataFolder,'_',SS.DateStr,'.vre']);        
+        SS.VREFile = fullfile(SS.FullDataFolder,['\VREData_',SS.VREInfo.IDLabel,'_',SS.DataFolder,'_',SS.DateStr,'.vre']);
     end
     SS.VREFID = fopen(SS.VREFile,'w+');
     saveVRE(SS,1); %writing header
@@ -3306,7 +3315,7 @@ VREData = [
     SS.VREInfo.sensors.motor_torque(:)
     SS.VREInfo.sensors.joint_pos(:)
     SS.VREInfo.sensors.joint_vel(:)
-%     SS.VREInfo.sensors.contact(:)
+    %     SS.VREInfo.sensors.contact(:)
     reshape(VRESensorBuffer(SS.VREInfo.sensors.contact),[],1)
     SS.VREInfo.sensors.imu_linear_acc(:)
     SS.VREInfo.sensors.imu_angular_vel(:)
@@ -3351,38 +3360,38 @@ SS.VREInfo.IDLabel = SS.VREIDLabels{SS.VREInfo.IDIdx,2}; %finding label that mat
 % SS.ARD1.Ready = ctrlRBArduino(zeros(1,5));
 
 function SS = connectLEAP(SS)
-    % Connect to LEAP
-    try
-        % initializing LEAP Motion tracking
-        SS.LEAP.Ready = initLeapMotion();
-        SS.LEAP.Kinematics = zeros(12,1);
-        SS.LEAP.Connected = false;
-        SS.LEAP.IsRight = false;
-        SS.LEAP.Kinematics2 = zeros(12,1);
-        SS.LEAP.Connected2 = false;
-        SS.LEAP.IsRight2 = false;
-        if(SS.LEAP.Ready)
-            disp('Leap Motion Connected')
-        else
-            disp('Leap Motion Failed to Connect')
-        end
-    catch
-        SS.LEAP.Ready = 0;
-        SS.LEAP.Kinematics = zeros(12,1);
-        SS.LEAP.Connected = false;
-        SS.LEAP.IsRight = false;
-        SS.LEAP.Kinematics2 = zeros(12,1);
-        SS.LEAP.Connected2 = false;
-        SS.LEAP.IsRight2 = false;
+% Connect to LEAP
+try
+    % initializing LEAP Motion tracking
+    SS.LEAP.Ready = initLeapMotion();
+    SS.LEAP.Kinematics = zeros(12,1);
+    SS.LEAP.Connected = false;
+    SS.LEAP.IsRight = false;
+    SS.LEAP.Kinematics2 = zeros(12,1);
+    SS.LEAP.Connected2 = false;
+    SS.LEAP.IsRight2 = false;
+    if(SS.LEAP.Ready)
+        disp('Leap Motion Connected')
+    else
         disp('Leap Motion Failed to Connect')
     end
+catch
+    SS.LEAP.Ready = 0;
+    SS.LEAP.Kinematics = zeros(12,1);
+    SS.LEAP.Connected = false;
+    SS.LEAP.IsRight = false;
+    SS.LEAP.Kinematics2 = zeros(12,1);
+    SS.LEAP.Connected2 = false;
+    SS.LEAP.IsRight2 = false;
+    disp('Leap Motion Failed to Connect')
+end
 return
 
 function SS = connectARD(SS)
 % check if user desires to connect arduinos first
 % while 1
 %     connPrompt = input('Connect arduinos/stimboxes? (Y/N): ', 's');
-%     
+%
 %     if length(connPrompt) == 1 && any(connPrompt == 'YyNn10')
 %         if any(connPrompt == 'Yy1')
 %             attemptConnection = 1;
@@ -3395,20 +3404,20 @@ function SS = connectARD(SS)
 
 if SS.StartARD
     % rock band connect
-%     try % smw
-%         SS.ARD1.Ready = ctrlRBArduino(zeros(1,5));
-%         if SS.ARD1.Ready
-%             disp('Arduino1 Rock Band connected...')
-%         else
-%             disp('Arduino1: Rock Band failed to connect')
-%         end
-%     catch
-%         SS.ARD1.Ready = 0;
-%         disp('Arduino1: Rock Band failed to connect')
-%     end
-
+    %     try % smw
+    %         SS.ARD1.Ready = ctrlRBArduino(zeros(1,5));
+    %         if SS.ARD1.Ready
+    %             disp('Arduino1 Rock Band connected...')
+    %         else
+    %             disp('Arduino1: Rock Band failed to connect')
+    %         end
+    %     catch
+    %         SS.ARD1.Ready = 0;
+    %         disp('Arduino1: Rock Band failed to connect')
+    %     end
+    
     SS.ARD1.Ready = 0;
-
+    
     %buzzer feedback with arduino nano
     try
         SS.VTStruct.Amp = [0;0;0;0;0;0]; %not used
@@ -3426,97 +3435,97 @@ if SS.StartARD
         SS.VTStruct.Ready = 0;
         disp('VTStim hand buzzers failed to connect')
     end
-
+    
     %open bionics hand
-%     try
-%         SS.PHandContactLabels = {'thumb_distal','palm_pinky','index_distal','middle_distal'};
-%         SS.PHandMotorLabels = {'thumb_MCP','index_MCP','middle_MCP','ring_MCP','pinky_MCP','wrist_FLEX','wrist_PRO','','','','',''};
-%         SS.ARD3.Obj = initiateOB();
-%         [SS.PHandMotorVals,SS.PHandContactVals] = updateOB(SS.ARD3.Obj,zeros(1,7));
-%         SS.ARD3.Ready = 1;
-%         disp('Arduino3 3DHand connected')
-%     catch
-%         if isfield(SS,'ARD3')
-%             if isfield(SS.ARD3,'Obj')
-%                 if isobject(SS.ARD3.Obj)
-%                     fclose(SS.ARD3.Obj);
-%                     delete(SS.ARD3.Obj);
-%                 end
-%             end
-%         end
-%         SS.ARD3.Ready = 0;
-%         disp('Arduino3 3DHand failed to connect')
-%     end
+    %     try
+    %         SS.PHandContactLabels = {'thumb_distal','palm_pinky','index_distal','middle_distal'};
+    %         SS.PHandMotorLabels = {'thumb_MCP','index_MCP','middle_MCP','ring_MCP','pinky_MCP','wrist_FLEX','wrist_PRO','','','','',''};
+    %         SS.ARD3.Obj = initiateOB();
+    %         [SS.PHandMotorVals,SS.PHandContactVals] = updateOB(SS.ARD3.Obj,zeros(1,7));
+    %         SS.ARD3.Ready = 1;
+    %         disp('Arduino3 3DHand connected')
+    %     catch
+    %         if isfield(SS,'ARD3')
+    %             if isfield(SS.ARD3,'Obj')
+    %                 if isobject(SS.ARD3.Obj)
+    %                     fclose(SS.ARD3.Obj);
+    %                     delete(SS.ARD3.Obj);
+    %                 end
+    %             end
+    %         end
+    %         SS.ARD3.Ready = 0;
+    %         disp('Arduino3 3DHand failed to connect')
+    %     end
     SS.ARD3.Ready = 0;
-
+    
     %HANDi hand connection (jake added on 10/5/17)
-%     try
-%         SS.HANDiHandContactLabels = {'thumb_distal','palm_pinky','index_distal','middle_distal','pinky_distal'};
-%         SS.HANDiHandPositionLabels = {'','','','','','','','',''};
-%         SS.HANDiHandMotorLabels = {'thumb_ABD','thumb_MCP','index_MCP','middle_MCP','ring_MCP','pinky_MCP'};
-%         SS.ARD4.Obj = initiateHH();
-%         [SS.HANDiHandMotorVals,SS.HANDiHandMotorPos,SS.HANDiHandContactVals] = updateHH(SS.ARD4.Obj,zeros(1,6)); %??
-%         SS.ARD4.Ready = 1;
-%         disp('Arduino4 HANDiHand connected')
-%     catch
-%         if isfield(SS,'ARD4')
-%             if isfield(SS.ARD4,'Obj')
-%                 if isobject(SS.ARD4.Obj)
-%                     fclose(SS.ARD4.Obj);
-%                     delete(SS.ARD4.Obj);
-%                 end
-%             end
-%         end
-%         SS.ARD4.Ready = 0;
-%         disp('Arduino4 HANDi Hand failed to connect')
-%     end
+    %     try
+    %         SS.HANDiHandContactLabels = {'thumb_distal','palm_pinky','index_distal','middle_distal','pinky_distal'};
+    %         SS.HANDiHandPositionLabels = {'','','','','','','','',''};
+    %         SS.HANDiHandMotorLabels = {'thumb_ABD','thumb_MCP','index_MCP','middle_MCP','ring_MCP','pinky_MCP'};
+    %         SS.ARD4.Obj = initiateHH();
+    %         [SS.HANDiHandMotorVals,SS.HANDiHandMotorPos,SS.HANDiHandContactVals] = updateHH(SS.ARD4.Obj,zeros(1,6)); %??
+    %         SS.ARD4.Ready = 1;
+    %         disp('Arduino4 HANDiHand connected')
+    %     catch
+    %         if isfield(SS,'ARD4')
+    %             if isfield(SS.ARD4,'Obj')
+    %                 if isobject(SS.ARD4.Obj)
+    %                     fclose(SS.ARD4.Obj);
+    %                     delete(SS.ARD4.Obj);
+    %                 end
+    %             end
+    %         end
+    %         SS.ARD4.Ready = 0;
+    %         disp('Arduino4 HANDi Hand failed to connect')
+    %     end
     SS.ARD4.Ready = 0;
-
-
-
-%     try % StimBoxSetup
-%     %     SS.ARD6.Ready = 0; %%% Don't set here....set higher up so it happens once
-%         %%%% Case so that init only happens during setup using the
-%         %%%% SS.ARD6.Ready
-%         if SS.ARD6.Ready == 1
-%         else
-%         [SS.ARD6.Obj, SS.ARD6.Ready] = StimBox2COM6('init');
-%         end
-%         SS.ARD6.StimRange = 7; % range of 7mA
-%     %     SS.ARD6.StimThresh = 1.55; %% set per person (once at start)
-%     %      SS.ARD6.StimMax = SS.ARD6.StimThresh+7; %% 7mA higher than thresh
-%     %     %%% Garrison you will need to choose the right max and min for the new
-%     %     %%% sensors once the DEKA hand is back. Tyler said he can help you
-%     %     %%% thursday. It would be nice to make it so that the same stimulation
-%     %     %%% is delivered for the same force on both index and thumb...but that
-%     %     %%% might be tricky. Try to do it by hand though. I suggest.
-%     %     SS.ARD6.ThumbMax = 180; %% 220 hard max
-%     %     SS.ARD6.ThumbMin = 122;
-%     %     SS.ARD6.IndexMax = 23;
-%     %     SS.ARD6.IndexMin = 15;
-%     %     SS.ARD6.PD = 100; % usec
-%     %     SS.ARD6.Freq = 50;
-%         SS.ARD6.Command = zeros(1,9); %[0,0,SS.ARD6.Freq,SS.ARD6.Freq,SS.ARD6.PD,SS.ARD6.PD,0];
-%         if SS.ARD6.Ready == 0
-%             if isfield(SS.ARD6,'Obj')
-%                 if isobject(SS.ARD6.Obj)
-%                     fclose(SS.ARD6.Obj);
-%                     delete(SS.ARD6.Obj);
-%                 end
-%             end
-%             disp('Arduino6 StimBox failed to connect')
-%         end
-%     catch
-%         if isfield(SS, 'ARD6')
-%             if isfield(SS.ARD6,'Obj')
-%                 if isobject(SS.ARD6.Obj)
-%                     fclose(SS.ARD6.Obj);
-%                     delete(SS.ARD6.Obj);
-%                 end
-%             end
-%         end
-%         disp('Arduino6 StimBox failed to connect')
-%     end
+    
+    
+    
+    %     try % StimBoxSetup
+    %     %     SS.ARD6.Ready = 0; %%% Don't set here....set higher up so it happens once
+    %         %%%% Case so that init only happens during setup using the
+    %         %%%% SS.ARD6.Ready
+    %         if SS.ARD6.Ready == 1
+    %         else
+    %         [SS.ARD6.Obj, SS.ARD6.Ready] = StimBox2COM6('init');
+    %         end
+    %         SS.ARD6.StimRange = 7; % range of 7mA
+    %     %     SS.ARD6.StimThresh = 1.55; %% set per person (once at start)
+    %     %      SS.ARD6.StimMax = SS.ARD6.StimThresh+7; %% 7mA higher than thresh
+    %     %     %%% Garrison you will need to choose the right max and min for the new
+    %     %     %%% sensors once the DEKA hand is back. Tyler said he can help you
+    %     %     %%% thursday. It would be nice to make it so that the same stimulation
+    %     %     %%% is delivered for the same force on both index and thumb...but that
+    %     %     %%% might be tricky. Try to do it by hand though. I suggest.
+    %     %     SS.ARD6.ThumbMax = 180; %% 220 hard max
+    %     %     SS.ARD6.ThumbMin = 122;
+    %     %     SS.ARD6.IndexMax = 23;
+    %     %     SS.ARD6.IndexMin = 15;
+    %     %     SS.ARD6.PD = 100; % usec
+    %     %     SS.ARD6.Freq = 50;
+    %         SS.ARD6.Command = zeros(1,9); %[0,0,SS.ARD6.Freq,SS.ARD6.Freq,SS.ARD6.PD,SS.ARD6.PD,0];
+    %         if SS.ARD6.Ready == 0
+    %             if isfield(SS.ARD6,'Obj')
+    %                 if isobject(SS.ARD6.Obj)
+    %                     fclose(SS.ARD6.Obj);
+    %                     delete(SS.ARD6.Obj);
+    %                 end
+    %             end
+    %             disp('Arduino6 StimBox failed to connect')
+    %         end
+    %     catch
+    %         if isfield(SS, 'ARD6')
+    %             if isfield(SS.ARD6,'Obj')
+    %                 if isobject(SS.ARD6.Obj)
+    %                     fclose(SS.ARD6.Obj);
+    %                     delete(SS.ARD6.Obj);
+    %                 end
+    %             end
+    %         end
+    %         disp('Arduino6 StimBox failed to connect')
+    %     end
     SS.ARD6.Ready = 0;
     
 else % attemptConnect == 0
@@ -3550,49 +3559,49 @@ function SS = initNIP(SS)
 
 while 1
     try
-        if xippmex_1_12('tcp')  %% MB 20200302 original is just xippmex_1_12 for UDP 
-        else 
+        if xippmex_1_12('tcp')  %% MB 20200302 original is just xippmex_1_12 for UDP
+        else
             xippmex_1_12('close'); clear('xippmex_1_12');
             disp('Unable to initialize TCP xippmex');
             xippmex_1_12();
             disp('using UDP mode');
         end
-%             SS.XippOpers = xippmex_1_12('opers'); pause(0.1);
-            SS.AvailChanList = xippmex_1_12('elec','all'); pause(0.1);
-            SS.AvailStimList = xippmex_1_12('elec','stim'); pause(0.1);            
-            SS.HSChans = [1,33,65,129,161,193,257,289,321]; %1st channel of each 32ch headstage
-            SS.AvailNeural = SS.AvailChanList(SS.AvailChanList<=224); SS.AvailNeuralHS = intersect(SS.HSChans,SS.AvailNeural);
-%             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=288); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
-            SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=384); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
-            SS.AvailAnalog = SS.AvailChanList(SS.AvailChanList==10241); %10241 to 10270 (1st 4 are SMA)
-            SS.AvailStim = intersect(SS.AvailNeural,SS.AvailStimList); SS.AvailStimHS = intersect(SS.HSChans,SS.AvailStim);
-            SS.DisableEMG = SS.AvailChanList(SS.AvailChanList>=289 & SS.AvailChanList<=384); SS.DisableEMGHS = intersect(SS.HSChans,SS.DisableEMG);            
+        %             SS.XippOpers = xippmex_1_12('opers'); pause(0.1);
+        SS.AvailChanList = xippmex_1_12('elec','all'); pause(0.1);
+        SS.AvailStimList = xippmex_1_12('elec','stim'); pause(0.1);
+        SS.HSChans = [1,33,65,129,161,193,257,289,321]; %1st channel of each 32ch headstage
+        SS.AvailNeural = SS.AvailChanList(SS.AvailChanList<=224); SS.AvailNeuralHS = intersect(SS.HSChans,SS.AvailNeural);
+        %             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=288); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
+        SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=384); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
+        SS.AvailAnalog = SS.AvailChanList(SS.AvailChanList==10241); %10241 to 10270 (1st 4 are SMA)
+        SS.AvailStim = intersect(SS.AvailNeural,SS.AvailStimList); SS.AvailStimHS = intersect(SS.HSChans,SS.AvailStim);
+        SS.DisableEMG = SS.AvailChanList(SS.AvailChanList>=289 & SS.AvailChanList<=384); SS.DisableEMGHS = intersect(SS.HSChans,SS.DisableEMG);
         break;
     catch
         disp('Unable to initialize xippmex');
         xippmex_1_12('close'); clear('xippmex_1_12');
     end
-   
-%     try
-%         if xippmex_1_12  %% UDP
-% %             SS.XippOpers = xippmex_1_12('opers'); pause(0.1);
-%             SS.AvailChanList = xippmex_1_12('elec','all'); pause(0.1);
-%             SS.AvailStimList = xippmex_1_12('elec','stim'); pause(0.1);            
-%             SS.HSChans = [1,33,65,129,161,193,257,289,321]; %1st channel of each 32ch headstage
-%             SS.AvailNeural = SS.AvailChanList(SS.AvailChanList<=224); SS.AvailNeuralHS = intersect(SS.HSChans,SS.AvailNeural);
-% %             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=288); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
-%             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=384); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
-%             SS.AvailAnalog = SS.AvailChanList(SS.AvailChanList==10241); %10241 to 10270 (1st 4 are SMA)
-%             SS.AvailStim = intersect(SS.AvailNeural,SS.AvailStimList); SS.AvailStimHS = intersect(SS.HSChans,SS.AvailStim);
-%             SS.DisableEMG = SS.AvailChanList(SS.AvailChanList>=289 & SS.AvailChanList<=384); SS.DisableEMGHS = intersect(SS.HSChans,SS.DisableEMG);            
-%             break;
-%         end
-%     catch
-%         disp('Unable to initialize UDP xippmex');
-%         xippmex_1_12('close'); clear('xippmex_1_12');
-%     end
-%     
-%     end
+    
+    %     try
+    %         if xippmex_1_12  %% UDP
+    % %             SS.XippOpers = xippmex_1_12('opers'); pause(0.1);
+    %             SS.AvailChanList = xippmex_1_12('elec','all'); pause(0.1);
+    %             SS.AvailStimList = xippmex_1_12('elec','stim'); pause(0.1);
+    %             SS.HSChans = [1,33,65,129,161,193,257,289,321]; %1st channel of each 32ch headstage
+    %             SS.AvailNeural = SS.AvailChanList(SS.AvailChanList<=224); SS.AvailNeuralHS = intersect(SS.HSChans,SS.AvailNeural);
+    % %             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=288); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
+    %             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=384); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
+    %             SS.AvailAnalog = SS.AvailChanList(SS.AvailChanList==10241); %10241 to 10270 (1st 4 are SMA)
+    %             SS.AvailStim = intersect(SS.AvailNeural,SS.AvailStimList); SS.AvailStimHS = intersect(SS.HSChans,SS.AvailStim);
+    %             SS.DisableEMG = SS.AvailChanList(SS.AvailChanList>=289 & SS.AvailChanList<=384); SS.DisableEMGHS = intersect(SS.HSChans,SS.DisableEMG);
+    %             break;
+    %         end
+    %     catch
+    %         disp('Unable to initialize UDP xippmex');
+    %         xippmex_1_12('close'); clear('xippmex_1_12');
+    %     end
+    %
+    %     end
 end
 
 % Enabling appropriate neural channels
