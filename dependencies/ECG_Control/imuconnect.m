@@ -10,7 +10,7 @@ end
 compName = getenv('computername');
 switch compName
     case 'PNIMATLAB'
-         comPorts = {'19', '13','22'}; % 22: B0A3, 20: C7C1, 12: 6C61, 18: 49C6 (most reliable)
+         comPorts = {'13', '19','21'}; % 22: B0A3, 20: C7C1, 12: 6C61, 18: 49C6 (most reliable)
 %        ecgPorts = {'18'}; % 22: B0A3, 21: C7C1, 12: 6C61, 18: 49C6 (most reliable)
     case 'BIOEN-LAPTOP'
         comPorts = {'10'}; % 10: 6C61, need to pair 49C6 and add COM port
