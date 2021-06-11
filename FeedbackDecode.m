@@ -248,6 +248,7 @@ SS.shimmerIMU_Ready = 0;
 % Initialize low-cost Nathan Taska wrist TNT 4/7/21
 try
     [SS.LCWrist, SS.LCWrist_LastKin ] = initiateTaskaWrist();
+    SS.LCWrist_history = [0, 0, 0; 0, 0, 0];
     SS.LCWrist_Ready = 1;
     disp("Low-Cost Taska Wrist Connected");
     
@@ -1006,10 +1007,10 @@ if SS.UDPEvnt.BytesAvailable
                 %                 xippmex_1_12('stim','enable',0);
                 disp('Clearing stim...')
             case 'ChangeStimMode'
-                switch SS.StimMode
-                    case 'Off'
-                        xippmex_1_12('stim','enable',0);
-                end
+                %                 switch SS.StimMode % MP commented 20210608 - causes issue
+                %                     case 'Off'
+                %                         xippmex_1_12('stim','enable',0);
+                %                 end
                 disp('Changing stim mode...')
             case 'ManualStim'
                 if SS.ManualStim
@@ -1686,7 +1687,7 @@ switch SS.KinSrc
                     if(SS.NN.postKalman)
                         SS.xhat = kalman_test(SS.xhat',SS.NN.postKalmanTRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0)';
                     end
-                    SS.xhat = SS.xhat(SS.KalmanMvnts)';
+                    SS.xhat = SS.xhat(SS.KalmanMvnts);
                 catch
                     SS.xhat = zeros(length(SS.KalmanMvnts),1);
                     disp('NN prediction failed.');
@@ -2200,22 +2201,23 @@ if SS.TASKA.Ready
             updateTASKA(SS.TASKA.Obj,pos',SS.TASKA.RestPositions);
             SS.TASKA.Count = 0;
             SS.TASKAMotors = pos;
-            if SS.LCWrist_Ready
-                
-                %                 %%% Use to save Kinematic Data to use with LPF %%%  NOT
-                %                 IMPLEMENTED IN FEEDBACK DECODE BUT IMPLEMENTED WITH LEAP
-                %                 MOTION
-                %                 Saved_LPFKinematics(:,r+1) = [CurrX(10);CurrX(12)]; %;kinematics(2)
-                %                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                %                 LPF_Kinematics = mean(Saved_LPFKinematics(:,r+1-length_minus_1:r+1),2); % Takes the mean of the last 30 values(r increases by 1 each loop)
-                %
-                %                 updateTaskaWrist(SS.LCWrist, [-CurrX(10);CurrX(12)]); % values negative because Left hand
-                
-                SS.LCWrist_LastKin = taskamover(SS.LCWrist, SS.LCWrist_LastKin, [CurrX(10) ; -CurrX(12)]);
-                
-            end
         else
             SS.TASKA.Count = SS.TASKA.Count+1;
+        end
+        if SS.LCWrist_Ready
+            SS.LCWrist_history = [SS.LCWrist_history(:,2:3) [CurrX(10); -CurrX(12)]];
+            %                 %%% Use to save Kinematic Data to use with LPF %%%  NOT
+            %                 IMPLEMENTED IN FEEDBACK DECODE BUT IMPLEMENTED WITH LEAP
+            %                 MOTION
+            %                 Saved_LPFKinematics(:,r+1) = [CurrX(10);CurrX(12)]; %;kinematics(2)
+            %                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %                 LPF_Kinematics = mean(Saved_LPFKinematics(:,r+1-length_minus_1:r+1),2); % Takes the mean of the last 30 values(r increases by 1 each loop)
+            %
+            %                 updateTaskaWrist(SS.LCWrist, [-CurrX(10);CurrX(12)]); % values negative because Left hand
+            
+            %SS.LCWrist_LastKin = taskamover(SS.LCWrist, SS.LCWrist_LastKin, [CurrX(10) ; -CurrX(12)]);
+            updateTaskaWrist(SS.LCWrist, mean(SS.LCWrist_history,2));
+            
         end
     catch ME
         SS.TASKA.Ready = 0;
@@ -3000,7 +3002,7 @@ if ~isempty(SS.DigIO_TS)
                 fprintf(SS.CogLoadFID,'UnknownEvent,NIPTime=%0.0f,TargRad=%0.2f,ParallelID=%0.0f\r\n', ...
                     [SS.DigIO_TS(i) - SS.RecStart, SS.TargRad, double(SS.DigEvents(i).parallel)]);
         end
-    end 
+    end
 end
 
 % Secondary Task
