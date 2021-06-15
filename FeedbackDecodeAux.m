@@ -51,10 +51,15 @@ while SS.Run
                     SS.KEFTrainFile =  regexprep(SS.KDFTrainFile,'.kdf$','.kef');
 %                     [SS.X,SS.Z,~,~,SS.KDFTimes,SS.TrialStruct] = parseTrainingData(SS.KEFTrainFile,SS.KDFTrainFile);
                     [SS.X,SS.Z,~,~,SS.KDFTimes,SS.TrialStruct] = parseTrainingData_RandTrials(SS.KEFTrainFile,SS.KDFTrainFile);
-                    [Mvnts,Idxs,MaxLag] = autoSelectMvntsChsCorr_FD(SS.X,SS.Z,SS.AutoThresh,SS.BadKalmanIdxs); %if KalmanType is ReFit, run in velocity mode                    
-                    SS.KalmanElects = mapRippleUEA(Idxs(Idxs>=1 & Idxs<=192),'i2e',SS.MapType.Neural);
-                    SS.KalmanEMG = (Idxs(Idxs>=193 & Idxs<=272)-192)+200;
-                    SS.KEMGExtra = (Idxs(Idxs>272)-192)+200;
+                    [Mvnts,Idxs,MaxLag] = autoSelectMvntsChsCorr_FD(SS.X,SS.Z,SS.AutoThresh,SS.BadKalmanIdxs); %if KalmanType is ReFit, run in velocity mode  
+                    
+%                     SS.KalmanElects = mapRippleUEA(Idxs(Idxs>=1 & Idxs<=192),'i2e',SS.MapType.Neural);
+%                     SS.KalmanEMG = (Idxs(Idxs>=193 & Idxs<=272)-192)+200;
+%                     SS.KEMGExtra = (Idxs(Idxs>272)-192)+200;
+                    SS.KalmanElects = mapRippleUEA(Idxs(Idxs>=1 & Idxs<=288),'i2e',SS.MapType.Neural);
+                    SS.KalmanEMG = (Idxs(Idxs>=289 & Idxs<=368)-288)+300;
+                    SS.KEMGExtra = (Idxs(Idxs>368)-288)+300;
+                    
                     SS.KalmanMvnts = find(any(Mvnts,2));
                     SS.KalmanGain = Mvnts(SS.KalmanMvnts,:);
                     SS.EvntStr = sprintf('AutoPop:KalmanElects=%s;KalmanEMG=%s;KEMGExtra=%s;KalmanMvnts=%s;KalmanGain=%s;Lag=%0.0f;',regexprep(num2str(SS.KalmanElects(:)'),'\s+',','),regexprep(num2str(SS.KalmanEMG(:)'),'\s+',','),regexprep(num2str(SS.KEMGExtra(:)'),'\s+',','),regexprep(num2str(SS.KalmanMvnts(:)'),'\s+',','),regexprep(num2str(SS.KalmanGain(:)'),'\s+',','),MaxLag);                    
@@ -72,13 +77,19 @@ while SS.Run
                     [~,~,MaxLag,ZShift] = autoSelectMvntsChsCorr_FD(SS.X,SS.Z,SS.AutoThresh,SS.BadKalmanIdxs); %if KalmanType is ReFit, run in velocity mode
                     Mvnts = [any(SS.X>0,2),any(SS.X<0,2)];
 %                     IdxsCell = AkaikeGramSchmChanSelv300(SS.X,ZShift,find(any(Mvnts,2))',floor(SS.AutoThresh*720)); % smw modified last input to limit num channels based on autopop thresh
-                    IdxsCell = AkaikeGramSchmChanSelv300_orig05112016(SS.X,ZShift,find(any(Mvnts,2))',floor(SS.AutoThresh*720)); % smw modified last input to limit num channels based on autopop thresh
+%                     IdxsCell = AkaikeGramSchmChanSelv300_orig05112016(SS.X,ZShift,find(any(Mvnts,2))',floor(SS.AutoThresh*720)); % smw modified last input to limit num channels based on autopop thresh
+                    IdxsCell = AkaikeGramSchmChanSelv300_orig05112016(SS.X,ZShift,find(any(Mvnts,2))',floor(SS.AutoThresh*816)); % smw modified last input to limit num channels based on autopop thresh
                     Idxs = unique(cell2mat(IdxsCell));                    
 %                     [Mvnts,Idxs] = autoSelectMvntsChsStepWise(SS.Z',SS.X',SS.KDFTimes,SS.TrialStruct);                    
                     Idxs = setdiff(Idxs, SS.BadKalmanIdxs); % remove user selected bad channels
-                    SS.KalmanElects = mapRippleUEA(Idxs(Idxs>=1 & Idxs<=192),'i2e',SS.MapType.Neural);
-                    SS.KalmanEMG = (Idxs(Idxs>=193 & Idxs<=272)-192)+200;
-                    SS.KEMGExtra = (Idxs(Idxs>272)-192)+200;
+                    
+%                     SS.KalmanElects = mapRippleUEA(Idxs(Idxs>=1 & Idxs<=192),'i2e',SS.MapType.Neural);
+%                     SS.KalmanEMG = (Idxs(Idxs>=193 & Idxs<=272)-192)+200;
+%                     SS.KEMGExtra = (Idxs(Idxs>272)-192)+200;
+                    SS.KalmanElects = mapRippleUEA(Idxs(Idxs>=1 & Idxs<=288),'i2e',SS.MapType.Neural);
+                    SS.KalmanEMG = (Idxs(Idxs>=289 & Idxs<=368)-288)+300;
+                    SS.KEMGExtra = (Idxs(Idxs>368)-288)+300;
+                    
                     SS.KalmanMvnts = find(any(Mvnts,2));
                     SS.KalmanGain = Mvnts(SS.KalmanMvnts,:);
                     SS.EvntStr = sprintf('AutoPop:KalmanElects=%s;KalmanEMG=%s;KEMGExtra=%s;KalmanMvnts=%s;KalmanGain=%s;Lag=%0.0f;',regexprep(num2str(SS.KalmanElects(:)'),'\s+',','),regexprep(num2str(SS.KalmanEMG(:)'),'\s+',','),regexprep(num2str(SS.KEMGExtra(:)'),'\s+',','),regexprep(num2str(SS.KalmanMvnts(:)'),'\s+',','),regexprep(num2str(SS.KalmanGain(:)'),'\s+',','),MaxLag);
@@ -109,9 +120,14 @@ while SS.Run
                     Idxs = unique(cell2mat(IdxsCell));
                     
                     Idxs = setdiff(Idxs, SS.BadKalmanIdxs); % remove user selected bad channels
-                    SS.KalmanElects = mapRippleUEA(Idxs(Idxs>=1 & Idxs<=192),'i2e',SS.MapType.Neural);
-                    SS.KalmanEMG = (Idxs(Idxs>=193 & Idxs<=272)-192)+200;
-                    SS.KEMGExtra = (Idxs(Idxs>272)-192)+200;
+                    
+                    SS.KalmanElects = mapRippleUEA(Idxs(Idxs>=1 & Idxs<=288),'i2e',SS.MapType.Neural);
+                    SS.KalmanEMG = (Idxs(Idxs>=289 & Idxs<=368)-288)+300;
+                    SS.KEMGExtra = (Idxs(Idxs>368)-288)+300;
+%                     SS.KalmanElects = mapRippleUEA(Idxs(Idxs>=1 & Idxs<=192),'i2e',SS.MapType.Neural);
+%                     SS.KalmanEMG = (Idxs(Idxs>=193 & Idxs<=272)-192)+200;
+%                     SS.KEMGExtra = (Idxs(Idxs>272)-192)+200;
+
                     SS.KalmanMvnts = find(any(Mvnts,2));
                     SS.KalmanGain = Mvnts(SS.KalmanMvnts,:);
 

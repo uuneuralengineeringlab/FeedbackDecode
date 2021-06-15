@@ -159,14 +159,6 @@ SS.UDPContAux.InputBufferSize = 65535; SS.UDPContAux.InputDatagramPacketSize = 1
 fopen(SS.UDPEvntAux);
 fopen(SS.UDPContAux);
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% COB %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Opening network for UDP with NIP
-% SS.UDPNIP = udp('192.168.42.1',5075,'localhost','192.168.42.132','localport',5076);
-% SS.UDPNIP.InputBufferSize = 4096; SS.UDPNIP.InputDatagramPacketSize = 1024; SS.UDPNIP.OutputBufferSize = 4096; SS.UDPNIP.OutputDatagramPacketSize = 1024;
-% SS.UDPNIP.ByteOrder = 'littleEndian';
-% fopen(SS.UDPNIP);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 % Connecting to NIP
 disp('Initializing NIP...')
 SS = initNIP(SS);
@@ -209,7 +201,6 @@ switch SS.Map
 end
 
 if SS.StartMLAux
-    % system('powershell start-process "D:\RemoteRepo\FeedbackDecodeAux.exe" -verb runAs');
     switch SS.NumComp
         case '1 Computer'
             system(['psexec -i -d -u Administrator -p UUNEL@CNC "',fullfile(SS.BuildDir,'FeedbackDecodeAux.exe"')]);
@@ -230,7 +221,6 @@ while 1
 end
 
 % opening connection with arduino
-SS.ARD6.Ready = 0;
 SS = connectARD(SS);
 pause(2);
 
@@ -251,15 +241,13 @@ try
     SS.LCWrist_history = [0, 0, 0; 0, 0, 0];
     SS.LCWrist_Ready = 1;
     disp("Low-Cost Taska Wrist Connected");
-    
 catch
     disp("No Low-Cost Taska Wrist found, IS THE PATH ADDED???");
     SS.LCWrist_Ready = 0;
 end
 
 % Initializing loop timing
-SS.BaseLoopTime=0.033; %smw - change to 0.025 at some point?
-% SS.BaseLoopTime=0.02; %dk TASKA testing
+SS.BaseLoopTime=0.033; 
 SS.MCalcTic = double(xippmex_1_12('time'));
 SS.MCalcTime = 0;
 SS.MTotalTime = 0;
@@ -279,7 +267,7 @@ SS.StimWf = zeros(52,1);
 % Initializing electrode/chan variables, buffers
 SS.Fs = 30000;
 SS.FsEMG = 1000;
-SS.NumUEAs = 2;
+SS.NumUEAs = 3;
 SS.NumNeuralIdxs = 96*SS.NumUEAs;
 SS.NumNeuralElects = 100*SS.NumUEAs;
 SS.NumNeuralChans = 128*SS.NumUEAs;
@@ -292,12 +280,10 @@ SS.BadUEAElectsPrev = -1;
 SS.BaselineData = zeros(SS.NumNeuralIdxs+SS.NumEMGIdxs,1); %baseline subtraction for features
 
 SS.VRSurrIdxs = zeros(SS.NumNeuralIdxs,SS.NumNeuralIdxs);
-% SS.VRSurrIdxsGPU = gpuArray(SS.VRSurrIdxs);% initializing VRsurrIdx
 
 SS.NeuralChanList = mapRippleUEA(1:SS.NumNeuralIdxs,'i2c',SS.MapType.Neural); %list of NIP channels instead of indices to use with mex functions
 [~,SS.AvailNeuralIdx] = intersect(SS.NeuralChanList,SS.AvailNeural);
-% SS.EMGChanList = (1:32)+256; %NIP channels for EMG
-SS.EMGChanList = (1:96)+256; %NIP channels for EMG
+SS.EMGChanList = (0:95)+SS.EMGChanRng(1); %NIP channels for EMG
 [~,SS.AvailEMGIdx] = intersect(SS.EMGChanList,SS.AvailEMG);
 
 % add for VTStim if no neural stim FEs
@@ -368,23 +354,9 @@ SS = updateIdxs(SS); %creates/updates SS.KalmanChans, SS.SelChan, SS.BadChans, a
 SS = initBuffers(SS);
 SS = resetKalman(SS);
 
-
 SS.GoalNoiseFixed = SS.GoalNoise*randn(1,1) + zeros(size(SS.T(SS.KalmanMvnts)));
 SS.GoalNoiseHistory = zeros(12,1);
 SS.betaHistory = [];
-%%%%%%%%%%%%%%%%%%%%%%%%%%% COB %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% SS = sendDecode2NIP(SS);
-% SS.pIdx = 1;
-% SS.pBuffSize = 300;
-% SS.pBuff = zeros(length(SS.KalmanMvnts),SS.pBuffSize);
-% % SS.pBuff = zeros(length(SS.KalmanIdxs),SS.pBuffSize);
-% SS.fH = figure('windowstyle','docked');
-% SS.aH = axes('parent',SS.fH);
-% SS.pH = plot(SS.aH,1:SS.pBuffSize,SS.pBuff');
-% hold on
-% SS.pH(end+1) = plot(SS.aH,[SS.pIdx,SS.pIdx],[-1000,1000],'r');
-% hold off
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Initializing other variables
 [SS.bHP,SS.aHP] = butter(4,750/(SS.Fs/2),'high'); %butterworth filter (high-pass 250Hz) to use with FilterM (mex function for filtering)
@@ -395,9 +367,8 @@ SS.cHP = zeros(4,SS.NumNeuralIdxs); %initial conditions for filter for all chann
 % passes of continuous data between the two systems.
 SS.ContML = [SS.TrainCnt;SS.MCalcTime;SS.MTotalTime;SS.XHat;...
     %     SS.X;length(SS.NeuralElectRatesMA);SS.NeuralElectRatesMA;SS.EMGPwrMA(1:80);SS.ThreshRMS(SS.SelIdx);...
-    SS.X;length(SS.NeuralElectRatesMA);SS.NeuralElectRatesMA;SS.EMGPwrMA;SS.ThreshRMS(SS.SelIdx);...
+    SS.X;length(SS.NeuralElectRatesMA);SS.NeuralElectRatesMA;SS.EMGPwrMA(1:80);SS.ThreshRMS(SS.SelIdx);...
     length(SS.SelData);SS.SelData;SS.SelWfs(:)];
-% disp(SS.ContML); disp('initsystem')%smw
 fwrite(SS.UDPCont,typecast(flipud(single(SS.ContML)),'uint8'));
 
 % Starting task file
@@ -417,7 +388,7 @@ if SS.ARD3.Ready
 end
 
 % Starting continuous stim file
-SS.ContStimFile = fullfile(SS.FullDataFolder,['\ContStim_',SS.DataFolder,'.csf']);
+SS.ContStimFile = fullfile(SS.FullDataFolder,['\ContStim_',SS.DataFolder,'.csf3']);
 SS.ContStimFID = fopen(SS.ContStimFile,'w+');
 fwrite(SS.ContStimFID,[1;length(SS.AllContStimAmp);length(SS.AllContStimFreq)],'single'); %saving data to ContStim file (*.csf filespec, see readCSF)
 
@@ -433,8 +404,6 @@ try
     SS.XippTS = double(xippmex_1_12('time'));
     SS.RecStart = SS.XippTS; %get time when recording started (skipped if xippmex command fails)
     if SS.StartXippRec %only automatically start recording if command sent from LV
-        %         xippmex_1_12('trial',SS.XippOpers,'recording',fullfile(SS.FullDataFolder,[SS.DataFolder,'-']));
-        %         xippmex_1_12('trial','recording',fullfile(SS.FullDataFolder,[SS.DataFolder,'-']));
         xippmex_1_12('trial','recording',fullfile(SS.FullDataFolder, SS.DataFolder));
         RecStart = SS.RecStart;
         save(fullfile(SS.FullDataFolder,['\RecStart_',SS.DataFolder,'.mat']),'RecStart')
@@ -520,17 +489,11 @@ end
 % Filtering and performing CAR
 [SS.dNeural,SS.cHP] = FilterX(SS.bHP,SS.aHP,SS.dNeural,SS.cHP);
 
-% [dNeural,cHP] = filter(SS.bHP,SS.aHP,gpuArray(SS.dNeural),SS.cHP);
-% SS.dNeural = gather(dNeural);
-% SS.cHP = gather(cHP);
-
 if SS.CAR
     switch SS.CARType
         case {0,'Standard'} %standard
-            %             SS.dNeural = gather((gpuArray(SS.dNeural)*SS.NeuralSurrIdxsGPU))
             SS.dNeural = SS.dNeural*SS.NeuralSurrIdxs;
         case {1,'NN'} %vr
-            %             SS.dNeural = gather((gpuArray(SS.dNeural)*SS.VRSurrIdxsGPU));
             SS.dNeural = SS.dNeural*SS.VRSurrIdxs;
     end
 end
@@ -579,8 +542,6 @@ SS.NeuralRatesBuff(:,1) = SS.NeuralRates; %current firing rate for all neural in
 SS.NeuralRatesMA = mean(SS.NeuralRatesBuff,2); %moving average firing rate for all neural indices
 
 % Update continuous EMG buffer
-% SS.EMGDiffBuff(SS.EMGDiffBuffIdx(1:SS.DLEMG),:) = mtimesx(SS.dEMG,SS.EMGMatrix,'speed');
-% SS.EMGDiffBuff(SS.EMGDiffBuffIdx(1:SS.DLEMG),:) = gather(gpuArray(SS.dEMG)*SS.EMGMatrixGPU); %~300x(80+448) (time x all possible diff pairs on a single lead plus all other possible pairs across leads - see genEMGMatrix.m)
 if length(SS.AvailEMG)<=32
     SS.EMGDiffBuff(SS.EMGDiffBuffIdx(1:SS.DLEMG),:) = SS.dEMG*SS.EMGMatrix; %slow (0.29)
 else
@@ -601,7 +562,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Updating kalman
-SS.Z = [SS.NeuralRatesMA;SS.EMGPwrMA]; %moving average for spike rate (channel x rate) with emg appended (720 x rate or pwr)
+SS.Z = [SS.NeuralRatesMA;SS.EMGPwrMA]; %moving average for spike rate (channel x rate) with emg appended (816 x rate or pwr)
 
 % Updating NN
 try
@@ -819,8 +780,8 @@ if SS.UDPEvnt.BytesAvailable
                     case {2,'Gram'} % smw 1/10/17
                         disp('Calling Gram-SchmidtDarpa AutoPop function')
                         try
-                            if(SS.ExcludeSE)
-                                temp = unique([SS.BadKalmanIdxs; 192+SE']);
+                            if(SS.ExcludeSE) %single-ended
+                                temp = unique([SS.BadKalmanIdxs; SS.NumNeuralIdxs+SE']);
                             else
                                 temp = SS.BadKalmanIdxs;
                             end
@@ -1004,19 +965,21 @@ if SS.UDPEvnt.BytesAvailable
             case 'UpdateStim' %happens when value change in ParamsTable, button selection
                 disp('Updating stim...')
             case 'ClearStim' %happens when ParamsTable is cleared
-                %                 xippmex_1_12('stim','enable',0);
+%                 xippmex_1_12('stim','enable',0);
                 disp('Clearing stim...')
             case 'ChangeStimMode'
-                %                 switch SS.StimMode % MP commented 20210608 - causes issue
-                %                     case 'Off'
-                %                         xippmex_1_12('stim','enable',0);
-                %                 end
+                switch SS.StimMode % MP commented 20210608 - causes issue
+                    case 'Off'
+                        xippmex_1_12('stim','enable',0);
+                    otherwise
+                        xippmex_1_12('stim','enable',1);
+                end
                 disp('Changing stim mode...')
             case 'ManualStim'
                 if SS.ManualStim
                     disp('Starting manual stim...')
                 else
-                    %                     xippmex_1_12('stim','enable',0);
+                    % xippmex_1_12('stim','enable',0);
                     disp('Stopping manual stim...')
                 end
             case 'ChangeStimStep'
@@ -1368,13 +1331,6 @@ if isfield(SS,'f')
         for k = 1:length(objFields)
             SS(1).(objFields{k}) = tmpSS(1).(objFields{k});
         end
-        % to do: step through field names, case statement
-        %         SS.ARD1 = tmpSS.ARD1;
-        %         if SS.ARD1.Ready
-        %             disp('3DHand Connected')
-        %         else
-        %             disp('3DHand Not Connected')
-        %         end
         delete(SS.f)
         SS = rmfield(SS,'f');
     end
@@ -1431,20 +1387,6 @@ if SS.UDPEvntAux.BytesAvailable
                     SS.normalizerZ = TF.normalizerZ;
                 end
                 
-                %%%%%%%%%%%%%%%%%%%%%%%% COB %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                %                 SS = sendDecode2NIP(SS);
-                %
-                %                 SS.pIdx = 1;
-                %                 SS.pBuffSize = 300;
-                %                 SS.pBuff = zeros(length(SS.KalmanMvnts),SS.pBuffSize);
-                % %                 SS.pBuff = zeros(length(SS.KalmanIdxs),SS.pBuffSize);
-                %                 SS.fH = figure('windowstyle','docked');
-                %                 SS.aH = axes('parent',SS.fH);
-                %                 SS.pH = plot(SS.aH,1:SS.pBuffSize,SS.pBuff');
-                %                 hold on
-                %                 SS.pH(end+1) = plot(SS.aH,[SS.pIdx,SS.pIdx],[-1000,1000],'r');
-                %                 hold off
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 fwrite(SS.UDPEvnt,'TrainingFinished:');
             case 'AuxBakeoffFinished'
                 mj_close;
@@ -1505,25 +1447,6 @@ if SS.UDPCont.BytesAvailable
     % Continuous frequencies for 6 targets on MSMS hand
     SS.ContStimMSMS = SS.ContLV(25:30);
     
-    
-    % Continuous sensor values from DEKA (update past values first)
-    % no longer being used - JAG - 10/3/17
-    %     SS.PastDEKASensors(:,5) = SS.PastDEKASensors(:,4);
-    %     SS.PastDEKASensors(:,4) = SS.PastDEKASensors(:,3);
-    %     SS.PastDEKASensors(:,3) = SS.PastDEKASensors(:,2);
-    %     SS.PastDEKASensors(:,2) = SS.PastDEKASensors(:,1);
-    %     SS.PastDEKASensors(:,1) = SS.ContDEKASensors;
-    %     SS.ContDEKASensors = SS.ContLV(31:43);
-    
-    
-    % Continuous motor values from DEKA (update past values first)
-    % no longer being used - JAG - 10/3/17
-    %     SS.PastDEKAMotors(:,4) = SS.PastDEKAMotors(:,3);
-    %     SS.PastDEKAMotors(:,3) = SS.PastDEKAMotors(:,2);
-    %     SS.PastDEKAMotors(:,2) = SS.PastDEKAMotors(:,1);
-    %     SS.PastDEKAMotors(:,1) = SS.ContDEKAMotors;
-    %     SS.ContDEKAMotors = SS.ContLV(44:51);
-    
     % Continuous manual dof checkbox
     SS.ManualDOF = logical(SS.ContLV(52:63));
     
@@ -1568,7 +1491,7 @@ if SS.UDPCont.BytesAvailable
     end
     % send data to labview
     SS.ContML = [SS.TrainCnt;SS.MCalcTime;SS.MTotalTime;SS.XHat;...
-        SS.X;length(SS.NeuralElectRatesMA);SS.NeuralElectRatesMA;SS.EMGPwrMA;SS.ThreshRMS(SS.SelIdx);...
+        SS.X;length(SS.NeuralElectRatesMA);SS.NeuralElectRatesMA;SS.EMGPwrMA(1:80);SS.ThreshRMS(SS.SelIdx);...
         length(SS.SelData);SS.SelData;SS.SelWfs(:);SS.XippTS-SS.RecStart;SS.VREInfo.IDIdx;SS.StimWf;SS.ContDEKASensors;SS.decodeOutput;SS.TASKASensors.IR;SS.TASKASensors.baro];
     fwrite(SS.UDPCont,typecast(flipud(single(SS.ContML)),'uint8'));
 end
@@ -1922,24 +1845,6 @@ if ~isempty(SS.xhat)
         SS.xhatout(cond1 & leaidx') = SS.xhat(cond1 & leaidx')*SS.BaseLoopTime.*SS.CtrlSpeed(cond1 & leaidx')'+SS.xhatout(cond1 & leaidx');
         SS.xhatout(cond2 & leaidx') = min(abs(SS.xhat(cond2 & leaidx')*SS.BaseLoopTime.*SS.CtrlSpeed(cond2 & leaidx')')+SS.xhatout(cond2 & leaidx'),0);
         SS.xhatout(cond3 & leaidx') = max(-abs(SS.xhat(cond3 & leaidx')*SS.BaseLoopTime.*SS.CtrlSpeed(cond3 & leaidx')')+SS.xhatout(cond3 & leaidx'),0);
-        
-        %         switch SS.CtrlMode{1}
-        %             case {0,'Position','Velocity'} %no integration
-        %                 SS.xhat(SS.xhat<0 & pos) = 0;
-        %                 SS.xhat(SS.xhat>0 & ~pos) = 0;
-        %                 SS.xhatout = SS.xhat;
-        %             case {1,'Latching'} %latching
-        %                 SS.xhat(SS.xhat<0 & pos) = 0;
-        %                 SS.xhat(SS.xhat>0 & ~pos) = 0;
-        %                 SS.xhatout = SS.xhat*SS.BaseLoopTime*SS.CtrlSpeed(1)+SS.xhatout;
-        %             case {2,'Leaky'} %leaky
-        %                 cond1 = (SS.xhat<=0 & ~pos) | (SS.xhat>=0 & pos); %xhat is greater than threshold
-        %                 cond2 = ((SS.xhat>0 & ~pos) | (SS.xhat<0 & pos)) & SS.xhatout<=0; %xhat is less than threshold and xhatout is negative
-        %                 cond3 = ((SS.xhat>0 & ~pos) | (SS.xhat<0 & pos)) & SS.xhatout>=0; %xhat is less than threshold and xhatout is positive
-        %                 SS.xhatout(cond1) = SS.xhat(cond1)*SS.BaseLoopTime*SS.CtrlSpeed(1)+SS.xhatout(cond1);
-        %                 SS.xhatout(cond2) = min(abs(SS.xhat(cond2)*SS.BaseLoopTime*SS.CtrlSpeed(1))+SS.xhatout(cond2),0);
-        %                 SS.xhatout(cond3) = max(-abs(SS.xhat(cond3)*SS.BaseLoopTime*SS.CtrlSpeed(1))+SS.xhatout(cond3),0);
-        %         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     end %COBFlag
     
@@ -2537,12 +2442,10 @@ SS.BadUEAIdxs = mapRippleUEA(SS.BadUEAElects,'e2i',SS.MapType.Neural);
 SS.BadUEAIdxs(isnan(SS.BadUEAIdxs)) = [];
 if any(fastSetDiff(SS.BadUEAElectsPrev,SS.BadUEAElects))
     SS.NeuralSurrIdxs = genSurrIdxs(2,SS.BadUEAElects,SS.NumUEAs,SS.MapType.Neural);
-    %  SS.NeuralSurrIdxsGPU = gpuArray(SS.NeuralSurrIdxs); %generates a list of neighboring indices for CAR (SS.NumNeuralIdxs x 1 cell array)
     SS.BadUEAElectsPrev = SS.BadUEAElects;
     disp('Updating SS.NeuralSurrIdxs...')
 end
 
-% SS.EMGMatrixGPU = gpuArray(SS.EMGMatrix);
 if length(SS.AvailEMG)>32
     [SS.EMGMatrix,SS.EMGChanPairs] = genEMGMatrix(SS.BadEMGChans(SS.BadEMGChans>=1 & SS.BadEMGChans<=32)); %BadEMGIdxs = 1 to 528
     SS.BadEMGIdxs = SS.BadEMGChans;
@@ -2550,12 +2453,12 @@ else
     SS.BadEMGChans(SS.BadEMGChans<1 | SS.BadEMGChans>32) = []; %1-32 (single-ended)
     [SS.EMGMatrix,SS.EMGChanPairs,SS.BadEMGIdxs] = genEMGMatrix(SS.BadEMGChans); %BadEMGIdxs = 1 to 528
 end
-SS.BadKalmanIdxs = [SS.BadUEAIdxs;SS.BadEMGIdxs + SS.NumNeuralIdxs]; %1-720 (1-192 UEA; >192 EMG pairs)
+SS.BadKalmanIdxs = [SS.BadUEAIdxs;SS.BadEMGIdxs + SS.NumNeuralIdxs]; %1-816 (1-288 UEA; >288 EMG pairs)
 
 % Converting KalmanElects and KalmanEMG (these are selected electrodes on LV side)
 SS.KalmanElects(SS.KalmanElects<1 | SS.KalmanElects>SS.NumNeuralElects) = [];
-SS.KalmanEMG(SS.KalmanEMG<(SS.NumNeuralElects+1) | SS.KalmanEMG>(SS.NumNeuralElects+80)) = []; %manual emg selection from LV side (201-280)
-SS.KEMGExtra(SS.KEMGExtra<(SS.NumNeuralElects+81) | SS.KEMGExtra>(SS.NumNeuralElects+528)) = []; %281-728 (total 448)
+SS.KalmanEMG(SS.KalmanEMG<(SS.NumNeuralElects+1) | SS.KalmanEMG>(SS.NumNeuralElects+80)) = []; %manual emg selection from LV side (301-380)
+SS.KEMGExtra(SS.KEMGExtra<(SS.NumNeuralElects+81) | SS.KEMGExtra>(SS.NumNeuralElects+528)) = []; %381-828 (total 448)
 if SS.AllPairs
     SS.KalmanIdxs = [mapRippleUEA(SS.KalmanElects,'e2i',SS.MapType.Neural);(SS.KalmanEMG-SS.NumNeuralElects)' + SS.NumNeuralIdxs;(SS.KEMGExtra-SS.NumNeuralElects)' + SS.NumNeuralIdxs];
 else
@@ -2574,7 +2477,7 @@ if isempty(SS.KalmanMvnts)
     SS.KalmanThresh = [0.2,0.2];
 end
 
-% Converting SelElect (if >200, then emg channel was selected)
+% Converting SelElect (if >300, then emg channel was selected)
 SS.SelElect(SS.SelElect<1 | SS.SelElect>(SS.NumNeuralElects+80)) = [];
 if SS.SelElect<=SS.NumNeuralElects
     SS.SelIdx = mapRippleUEA(SS.SelElect,'e2i',SS.MapType.Neural);
@@ -2765,7 +2668,6 @@ for k=1:length(SS.AvailStimHS)
             xippmex_1_12('stim','enable',0);
             xippmex_1_12('stim','res',SS.AvailStimHS(k),StimIdx)
             xippmex_1_12('stim','enable',1);
-            
         end
     end
 end
@@ -2791,8 +2693,8 @@ SS.MS1Thresholds = 1;%default of 1 will be applied to all joint velocity sensors
 SS.MS2Thresholds = 0.1;%default of 0.1 will be applied to all joint angle sensors. This is overwritten for the luke hand during the encode function
 SS.encodeScaling = [60,20,1,1];%default scaling parameters for Max joint velocity, max contact force, max contact velocity, and max contact acceleration, respectively. This is overwritten for the luke hand during the encode function
 
-SS.AllContStimAmp = zeros(200,1);
-SS.AllContStimFreq = zeros(200,1);
+SS.AllContStimAmp = zeros(300,1); %updated for 3 USEAs
+SS.AllContStimFreq = zeros(300,1);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2835,18 +2737,6 @@ lkmex('start'); %starting deka communication (must run before hand is turned on)
 
 % dk 2018-01-26
 function SS = initTASKA(SS)
-% while 1
-%     connPrompt = input('Connect Taska? (Y/N): ', 's');
-%
-%     if length(connPrompt) == 1 && any(connPrompt == 'YyNn10')
-%         if any(connPrompt == 'Yy1')
-%             attemptConnection = 1;
-%         else
-%             attemptConnection = 0;
-%         end
-%         break
-%     end
-% end
 
 SS.TASKAMotorLabels = {'index_MCP';'middle_MCP';'ring_MCP';'little_MCP';'thumb_MCP';'thumb_ABD'};
 SS.TASKAMotors = zeros(length(SS.TASKAMotorLabels),1);
@@ -2891,18 +2781,6 @@ else % do not attempt connection
 end
 
 function SS = initTASKASensors(SS)
-% while 1
-%     connPrompt = input('Connect Taska Sensors? (Y/N): ', 's');
-%
-%     if length(connPrompt) == 1 && any(connPrompt == 'YyNn10')
-%         if any(connPrompt == 'Yy1')
-%             attemptConnection = 1;
-%         else
-%             attemptConnection = 0;
-%         end
-%         break
-%     end
-% end
 
 SS.TASKASensors.IR = zeros(4,1);
 SS.TASKASensors.baro = zeros(4,1);
@@ -3390,19 +3268,6 @@ end
 return
 
 function SS = connectARD(SS)
-% check if user desires to connect arduinos first
-% while 1
-%     connPrompt = input('Connect arduinos/stimboxes? (Y/N): ', 's');
-%
-%     if length(connPrompt) == 1 && any(connPrompt == 'YyNn10')
-%         if any(connPrompt == 'Yy1')
-%             attemptConnection = 1;
-%         else
-%             attemptConnection = 0;
-%         end
-%         break
-%     end
-% end
 
 if SS.StartARD
     % rock band connect
@@ -3561,49 +3426,25 @@ function SS = initNIP(SS)
 
 while 1
     try
-        if xippmex_1_12('tcp')  %% MB 20200302 original is just xippmex_1_12 for UDP
-        else
-            xippmex_1_12('close'); clear('xippmex_1_12');
-            disp('Unable to initialize TCP xippmex');
-            xippmex_1_12();
-            disp('using UDP mode');
-        end
-        %             SS.XippOpers = xippmex_1_12('opers'); pause(0.1);
+        xippmex_1_12('open'); pause(0.1);
         SS.AvailChanList = xippmex_1_12('elec','all'); pause(0.1);
         SS.AvailStimList = xippmex_1_12('elec','stim'); pause(0.1);
-        SS.HSChans = [1,33,65,129,161,193,257,289,321]; %1st channel of each 32ch headstage
-        SS.AvailNeural = SS.AvailChanList(SS.AvailChanList<=224); SS.AvailNeuralHS = intersect(SS.HSChans,SS.AvailNeural);
-        %             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=288); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
-        SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=384); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
+        SS.HSChans = [1,33,65,129,161,193,257,289,321,385,417,449]; %1st channel of each 32ch headstage (>=385 is EMG port D)
+        SS.NeuralChanRng = [[1,96];[129,224];[257,352]];
+        SS.EMGChanRng = [385,480];
+        SS.AvailNeural = SS.AvailChanList(SS.AvailChanList<=SS.NeuralChanRng(3,2)); 
+        SS.AvailNeuralHS = intersect(SS.HSChans,SS.AvailNeural); %updated for 3 USEAs ports A/B/C
+        SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=SS.EMGChanRng(1) & SS.AvailChanList<=SS.EMGChanRng(2)); 
+        SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
         SS.AvailAnalog = SS.AvailChanList(SS.AvailChanList==10241); %10241 to 10270 (1st 4 are SMA)
-        SS.AvailStim = intersect(SS.AvailNeural,SS.AvailStimList); SS.AvailStimHS = intersect(SS.HSChans,SS.AvailStim);
-        SS.DisableEMG = SS.AvailChanList(SS.AvailChanList>=289 & SS.AvailChanList<=384); SS.DisableEMGHS = intersect(SS.HSChans,SS.DisableEMG);
+        SS.AvailStim = intersect(SS.AvailNeural,SS.AvailStimList); 
+        SS.AvailStimHS = intersect(SS.HSChans,SS.AvailStim);
         break;
     catch
         disp('Unable to initialize xippmex');
         xippmex_1_12('close'); clear('xippmex_1_12');
+        pause(0.5)
     end
-    
-    %     try
-    %         if xippmex_1_12  %% UDP
-    % %             SS.XippOpers = xippmex_1_12('opers'); pause(0.1);
-    %             SS.AvailChanList = xippmex_1_12('elec','all'); pause(0.1);
-    %             SS.AvailStimList = xippmex_1_12('elec','stim'); pause(0.1);
-    %             SS.HSChans = [1,33,65,129,161,193,257,289,321]; %1st channel of each 32ch headstage
-    %             SS.AvailNeural = SS.AvailChanList(SS.AvailChanList<=224); SS.AvailNeuralHS = intersect(SS.HSChans,SS.AvailNeural);
-    % %             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=288); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
-    %             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=384); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
-    %             SS.AvailAnalog = SS.AvailChanList(SS.AvailChanList==10241); %10241 to 10270 (1st 4 are SMA)
-    %             SS.AvailStim = intersect(SS.AvailNeural,SS.AvailStimList); SS.AvailStimHS = intersect(SS.HSChans,SS.AvailStim);
-    %             SS.DisableEMG = SS.AvailChanList(SS.AvailChanList>=289 & SS.AvailChanList<=384); SS.DisableEMGHS = intersect(SS.HSChans,SS.DisableEMG);
-    %             break;
-    %         end
-    %     catch
-    %         disp('Unable to initialize UDP xippmex');
-    %         xippmex_1_12('close'); clear('xippmex_1_12');
-    %     end
-    %
-    %     end
 end
 
 % Enabling appropriate neural channels
@@ -3638,13 +3479,6 @@ if ~isempty(SS.AvailAnalog)
     xippmex_1_12('signal',SS.AvailAnalog,'1ksps',ones(length(SS.AvailAnalog),1)); pause(0.1);
     xippmex_1_12('signal',SS.AvailAnalog,'30ksps',zeros(length(SS.AvailAnalog),1)); pause(0.1);
 end
-
-% Disabling unwanted emg channels
-% if ~isempty(SS.DisableEMG)
-%     xippmex_1_12('signal',SS.DisableEMGHS,'raw',zeros(length(SS.DisableEMGHS),1)); pause(0.1);
-%     xippmex_1_12('signal',SS.DisableEMGHS,'lfp',zeros(length(SS.DisableEMGHS),1)); pause(0.1);
-%     xippmex_1_12('signal',SS.DisableEMG,'spk',zeros(length(SS.DisableEMG),1)); pause(0.1);
-% end
 
 SS.SfTable = [0.125,0.25,0.5]; %uV/bit returned from xippmex call: output = xippmex_1_12('adc2phys', 1);
 SS.SfNeural = 0.25;
