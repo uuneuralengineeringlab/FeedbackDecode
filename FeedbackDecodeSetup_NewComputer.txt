@@ -1,5 +1,7 @@
 HOW TO GET A FRESH START FOR FEEDBACKDECODE EXPERIMENTS
 
+3 USEA
+
 1. Install Windows 10 Pro
 2. Install LabVIEW Spring 2020 (with MathScript, JKI Package Manager, VISION, LabVIEW ZMQ) Serial: H11X42907
 3. Install ZeroMQ executable: CNI\General\ZeroMQ\ZeroMQ-4.0.4_miru1.0-x64.exe
