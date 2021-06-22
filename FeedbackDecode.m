@@ -1682,7 +1682,9 @@ switch SS.KinSrc
                 SS.xhat = kalman_test_adaptation(SS.Z(SS.KalmanIdxs),SS.TRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0, SS.AdaptOnline, SS.KalmanThresh);
             case {8,'NN'}
                 try
-                    SS.xhat = predict(SS.NN.net,SS.NN.FeatureBuffer);  %predict values
+%                     SS.xhat = predict(SS.NN.net,SS.NN.FeatureBuffer);  %predict values
+                    [SS.NN.net,SS.xhat] = predictAndUpdateState(SS.NN.net,SS.NN.FeatureBuffer);  %predict values
+
                     SS.NN.Prediction = SS.xhat;
                     if(SS.NN.postKalman)
                         SS.xhat = kalman_test(SS.xhat',SS.NN.postKalmanTRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0)';
