@@ -3449,9 +3449,10 @@ end
 
 % Enabling appropriate neural channels
 if ~isempty(SS.AvailNeural)
+    disp('Enabling Neural')
     xippmex_1_12('signal',SS.AvailNeuralHS,'raw',ones(length(SS.AvailNeuralHS),1)); pause(5); %only 1st headstage channels need to be sent
     xippmex_1_12('signal',SS.AvailNeuralHS,'lfp',zeros(length(SS.AvailNeuralHS),1)); pause(5);
-    xippmex_1_12('signal',SS.AvailNeural,'spk',ones(length(SS.AvailNeural),1)); pause(5); %all available channels need to be sent to xippmex
+    xippmex_1_12('signal',SS.AvailNeural,'spk',zeros(length(SS.AvailNeural),1)); pause(5); %all available channels need to be sent to xippmex
     for k=1:length(SS.AvailNeuralHS)
         xippmex_1_12('filter','set',SS.AvailNeuralHS(k),'spike',3); pause(0.5);
         xippmex_1_12('fastsettle','stim',SS.AvailNeuralHS(k),3,1); %set to same front port
@@ -3460,6 +3461,7 @@ end
 
 % Enabling appropriate emg channels
 if ~isempty(SS.AvailEMG)
+    disp('Enabling EMG')
     xippmex_1_12('signal',SS.AvailEMGHS,'raw',ones(length(SS.AvailEMGHS),1)); pause(0.5);
     xippmex_1_12('signal',SS.AvailEMGHS,'lfp',ones(length(SS.AvailEMGHS),1)); pause(0.5);
     xippmex_1_12('signal',SS.AvailEMG,'spk',zeros(length(SS.AvailEMG),1)); pause(0.5);
@@ -3471,11 +3473,13 @@ end
 
 % Enabling appropriate stim channels
 if ~isempty(SS.AvailStim)
+    disp('Enabling Stim')
     xippmex_1_12('signal',SS.AvailStim,'stim',ones(length(SS.AvailStim),1)); pause(0.5);
 end
 
 % Enabling appropriate analog channels
 if ~isempty(SS.AvailAnalog)
+    disp('Enabling Analog')
     xippmex_1_12('signal',SS.AvailAnalog,'1ksps',ones(length(SS.AvailAnalog),1)); pause(0.5);
     xippmex_1_12('signal',SS.AvailAnalog,'30ksps',zeros(length(SS.AvailAnalog),1)); pause(0.5);
 end
