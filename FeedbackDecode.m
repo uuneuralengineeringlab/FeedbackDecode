@@ -244,6 +244,9 @@ SS.CyberGlove.Kinematics = zeros(4,1);
 
 % Initialize SS.shimmerIMU_Ready
 SS.shimmerIMU_Ready = 0;
+SS.imucalib = 0;
+SS.IMU.WaistAngles = [0,0,0];
+SS.IMU.ShoulderAngles = [0,0,0];
 
 % Initialize low-cost Nathan Taska wrist TNT 4/7/21
 try
@@ -676,20 +679,41 @@ end
 
 % IMU Stuff
 % pull live IMU data, compute kinematics, send to decode, etc
-if SS.shimmerIMU_Ready
-    newIMUdata = [];
-    for index = 1:length(SS.shimmerIMU)
-        newstuff = SS.shimmerIMU(index).getdata('c');
-        if ~isempty(newstuff)
-            newIMUdata = [newIMUdata newstuff(end,:)];
-        else
-            newIMUdata = [newIMUdata zeros(1,10)];
+try
+    if SS.shimmerIMU_Ready
+        newIMUdata = [];
+        for index = 1:length(SS.shimmerIMU)
+            newstuff = SS.shimmerIMU(index).getdata('c');
+            if ~isempty(newstuff)
+                newIMUdata = [newIMUdata newstuff(end,:)];
+            else
+                newIMUdata = [newIMUdata SS.shimmerIMUData(1+14*(index-1):14+14*(index-1))];
+            end
         end
-    end
-    SS.shimmerIMUData = newIMUdata;
-    
-end
+        SS.shimmerIMUData = newIMUdata;
 
+        % perform joint angle calculations
+        R1 = quat2rnew(SS.shimmerIMUData(end,11:14));
+        R2 = quat2rnew(SS.shimmerIMUData(end,25:28));
+        R3 = quat2rnew(SS.shimmerIMUData(end,39:42));
+        if ~SS.imucalib % check if calibration frame has been set
+            R12 = R1'*R2;
+            R23 = R2'*R3;
+        else
+            R1fix=R1'*SS.imucalibr(:,:,1);
+            R2fix=R2'*SS.imucalibr(:,:,2);
+            R3fix=R3'*SS.imucalibr(:,:,3);
+            R12=R2fix'*R1fix;
+            R23=R3fix'*R2fix;
+        end
+        [a12,b12,g12] = R2abgtests(R12, 1);
+        [a23,b23,g23] = R2abgtests(R23, 1);
+        SS.IMU.WaistAngles = [a12,b12,g12]*180/pi;
+        SS.IMU.ShoulderAngles = [a23,b23,g23]*180/pi;
+    end
+catch
+    disp('IMU Failure')
+end
 
 
 
@@ -1183,16 +1207,16 @@ if SS.UDPEvnt.BytesAvailable
                     fwrite(SS.LEAP.FID,[length(SS.XippTS);length(SS.Z);length(SS.X);length(SS.T);length(SS.XHat);length(SS.LEAP.Kinematics);length(SS.LEAP.Connected);length(SS.LEAP.IsRight);length(SS.LEAP.Kinematics2);length(SS.LEAP.Connected2);length(SS.LEAP.IsRight2)],'single'); %writing header
                     SS.LEAP.TRAININGDATA = [];
                 end
-                if SS.RecordIMUwithTraining
-                    
-                    %imuStartRecordTS = imustart(SS.shimmerIMU);
-                    SS.shimmerIMUTrainFile = fullfile(SS.FullDataFolder,['\IMUTrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
-                    SS.shimmerIMUTrainFID = fopen(SS.shimmerIMUTrainFile,'w+');
-                    fwrite(SS.shimmerIMUTrainFID,[length(SS.XippTS);length(SS.shimmerIMU);length(SS.shimmerIMUData)],'single'); %writing header
-                    
-                    %fprintf(SS.CogLoadFID,'TrainingSetStart,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
-                    %    [SS.XippTS - SS.RecStart, imuStartRecordTS]);
-                end
+%                 if SS.RecordIMUwithTraining
+%                     
+%                     %imuStartRecordTS = imustart(SS.shimmerIMU);
+%                     SS.shimmerIMUTrainFile = fullfile(SS.FullDataFolder,['\IMUTrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
+%                     SS.shimmerIMUTrainFID = fopen(SS.shimmerIMUTrainFile,'w+');
+%                     fwrite(SS.shimmerIMUTrainFID,[length(SS.XippTS);length(SS.shimmerIMU);length(SS.shimmerIMUData)],'single'); %writing header
+%                     
+%                     %fprintf(SS.CogLoadFID,'TrainingSetStart,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
+%                     %    [SS.XippTS - SS.RecStart, imuStartRecordTS]);
+%                 end
                 disp('Training started')
             case 'StopAcqBaseline'
                 fclose(SS.BaselineFID);
@@ -1217,13 +1241,13 @@ if SS.UDPEvnt.BytesAvailable
                 [~,fname] = fileparts(SS.KDFTrainFile);
                 fwrite(SS.UDPEvnt,sprintf('StopAcqTraining:KDFFile=%s.kdf;',fname));
                 
-                if SS.RecordIMUwithTraining
-                    %imuStopRecordTS = imustop(SS.shimmerIMU);
-                    %fprintf(SS.CogLoadFID,'TrainingSetEnd,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
-                    %[SS.XippTS - SS.RecStart, imuStopRecordTS]);
-                    
-                    fclose(SS.shimmerIMUTrainFID);
-                end
+%                 if SS.RecordIMUwithTraining
+%                     %imuStopRecordTS = imustop(SS.shimmerIMU);
+%                     %fprintf(SS.CogLoadFID,'TrainingSetEnd,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
+%                     %[SS.XippTS - SS.RecStart, imuStopRecordTS]);
+%                     
+%                     fclose(SS.shimmerIMUTrainFID);
+%                 end
                 
                 disp('Training stopped')
             case 'Success'
@@ -1333,7 +1357,7 @@ if SS.UDPEvnt.BytesAvailable
                     [SS.shimmerIMU, ~,SS.shimmerIMU_Ready] = imuconnect(3);
                     
                     % Starting IMU task file
-                    SS.shimmerIMUData = zeros(1,10*length(SS.shimmerIMU));
+                    SS.shimmerIMUData = zeros(1,14*length(SS.shimmerIMU));
                     SS.shimmerIMUTaskFile = fullfile(SS.FullDataFolder,['\IMUTaskData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
                     SS.shimmerIMUTaskFID = fopen(SS.shimmerIMUTaskFile,'w+');
                     fwrite(SS.shimmerIMUTaskFID, [length(SS.XippTS);length(SS.shimmerIMU);length(SS.shimmerIMUData)],'single'); %writing header
@@ -1346,6 +1370,10 @@ if SS.UDPEvnt.BytesAvailable
                         imudisconnect(SS.shimmerIMU);
                     end
                 end
+            case 'CalibrateIMU'
+                calibquat = [SS.shimmerIMUData(end,11:14); SS.shimmerIMUData(end,25:28); SS.shimmerIMUData(end,39:42)]
+                SS.imucalibr = quat2rnew(calibquat)
+                SS.imucalib = 1
         end %switch
     catch ME
         assignin('base','ME',ME)
@@ -1569,7 +1597,7 @@ if SS.UDPCont.BytesAvailable
     % send data to labview
     SS.ContML = [SS.TrainCnt;SS.MCalcTime;SS.MTotalTime;SS.XHat;...
         SS.X;length(SS.NeuralElectRatesMA);SS.NeuralElectRatesMA;SS.EMGPwrMA;SS.ThreshRMS(SS.SelIdx);...
-        length(SS.SelData);SS.SelData;SS.SelWfs(:);SS.XippTS-SS.RecStart;SS.VREInfo.IDIdx;SS.StimWf;SS.ContDEKASensors;SS.decodeOutput;SS.TASKASensors.IR;SS.TASKASensors.baro];
+        length(SS.SelData);SS.SelData;SS.SelWfs(:);SS.XippTS-SS.RecStart;SS.VREInfo.IDIdx;SS.StimWf;SS.ContDEKASensors;SS.decodeOutput;SS.TASKASensors.IR;SS.TASKASensors.baro;SS.IMU.WaistAngles';SS.IMU.ShoulderAngles'];
     fwrite(SS.UDPCont,typecast(flipud(single(SS.ContML)),'uint8'));
 end
 
@@ -1587,9 +1615,9 @@ if SS.AcqTraining
         fwrite(SS.LEAP.FID,[SS.XippTS-SS.RecStart;SS.Z;SS.X;SS.T;SS.XHat;SS.LEAP.Kinematics;SS.LEAP.Connected;SS.LEAP.IsRight;SS.LEAP.Kinematics2;SS.LEAP.Connected2;SS.LEAP.IsRight2],'single');
         SS.LEAP.TRAININGDATA = [SS.LEAP.TRAININGDATA SS.LEAP.Frame];
     end
-    if SS.shimmerIMU_Ready
-        fwrite(SS.shimmerIMUTrainFID,[SS.XippTS-SS.RecStart,SS.shimmerIMUData],'single');
-    end
+%     if SS.shimmerIMU_Ready
+%         fwrite(SS.shimmerIMUTrainFID,[SS.XippTS-SS.RecStart,SS.shimmerIMUData],'single');
+%     end
     SS.TrainCnt = SS.TrainCnt + 1;
 end
 
@@ -1682,14 +1710,14 @@ switch SS.KinSrc
                 SS.xhat = kalman_test_adaptation(SS.Z(SS.KalmanIdxs),SS.TRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0, SS.AdaptOnline, SS.KalmanThresh);
             case {8,'NN'}
                 try
-%                     SS.xhat = predict(SS.NN.net,SS.NN.FeatureBuffer);  %predict values
-                    [SS.NN.net,SS.xhat] = predictAndUpdateState(SS.NN.net,SS.NN.FeatureBuffer);  %predict values
+                    SS.xhat = predict(SS.NN.net,SS.NN.FeatureBuffer);  %predict values
+%                     [SS.NN.net,SS.xhat] = predictAndUpdateState(SS.NN.net,SS.NN.FeatureBuffer);  %predict values
 
                     SS.NN.Prediction = SS.xhat;
                     if(SS.NN.postKalman)
                         SS.xhat = kalman_test(SS.xhat',SS.NN.postKalmanTRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0)';
                     end
-                    SS.xhat = SS.xhat(SS.KalmanMvnts);
+                    SS.xhat = SS.xhat(SS.KalmanMvnts)';
                 catch
                     SS.xhat = zeros(length(SS.KalmanMvnts),1);
                     disp('NN prediction failed.');
@@ -2207,7 +2235,7 @@ if SS.TASKA.Ready
             SS.TASKA.Count = SS.TASKA.Count+1;
         end
         if SS.LCWrist_Ready
-            SS.LCWrist_history = [SS.LCWrist_history(:,2:3) [CurrX(10); -CurrX(12)]];
+            SS.LCWrist_history = [SS.LCWrist_history(:,2:3) [-CurrX(10); -CurrX(12)]];
             %                 %%% Use to save Kinematic Data to use with LPF %%%  NOT
             %                 IMPLEMENTED IN FEEDBACK DECODE BUT IMPLEMENTED WITH LEAP
             %                 MOTION
@@ -3567,12 +3595,12 @@ while 1
         else
             xippmex_1_12('close'); clear('xippmex_1_12');
             disp('Unable to initialize TCP xippmex');
-            xippmex_1_12();
+            xippmex_1_12(); pause(1);
             disp('using UDP mode');
         end
         %             SS.XippOpers = xippmex_1_12('opers'); pause(0.1);
-        SS.AvailChanList = xippmex_1_12('elec','all'); pause(0.1);
-        SS.AvailStimList = xippmex_1_12('elec','stim'); pause(0.1);
+        SS.AvailChanList = xippmex_1_12('elec','all'); pause(1);
+        SS.AvailStimList = xippmex_1_12('elec','stim'); pause(1);
         SS.HSChans = [1,33,65,129,161,193,257,289,321]; %1st channel of each 32ch headstage
         SS.AvailNeural = SS.AvailChanList(SS.AvailChanList<=224); SS.AvailNeuralHS = intersect(SS.HSChans,SS.AvailNeural);
         %             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=288); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
@@ -3586,59 +3614,43 @@ while 1
         xippmex_1_12('close'); clear('xippmex_1_12');
     end
     
-    %     try
-    %         if xippmex_1_12  %% UDP
-    % %             SS.XippOpers = xippmex_1_12('opers'); pause(0.1);
-    %             SS.AvailChanList = xippmex_1_12('elec','all'); pause(0.1);
-    %             SS.AvailStimList = xippmex_1_12('elec','stim'); pause(0.1);
-    %             SS.HSChans = [1,33,65,129,161,193,257,289,321]; %1st channel of each 32ch headstage
-    %             SS.AvailNeural = SS.AvailChanList(SS.AvailChanList<=224); SS.AvailNeuralHS = intersect(SS.HSChans,SS.AvailNeural);
-    % %             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=288); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
-    %             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=384); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
-    %             SS.AvailAnalog = SS.AvailChanList(SS.AvailChanList==10241); %10241 to 10270 (1st 4 are SMA)
-    %             SS.AvailStim = intersect(SS.AvailNeural,SS.AvailStimList); SS.AvailStimHS = intersect(SS.HSChans,SS.AvailStim);
-    %             SS.DisableEMG = SS.AvailChanList(SS.AvailChanList>=289 & SS.AvailChanList<=384); SS.DisableEMGHS = intersect(SS.HSChans,SS.DisableEMG);
-    %             break;
-    %         end
-    %     catch
-    %         disp('Unable to initialize UDP xippmex');
-    %         xippmex_1_12('close'); clear('xippmex_1_12');
-    %     end
-    %
-    %     end
 end
 
 % Enabling appropriate neural channels
 if ~isempty(SS.AvailNeural)
-    xippmex_1_12('signal',SS.AvailNeuralHS,'raw',ones(length(SS.AvailNeuralHS),1)); pause(0.1); %only 1st headstage channels need to be sent
-    xippmex_1_12('signal',SS.AvailNeuralHS,'lfp',zeros(length(SS.AvailNeuralHS),1)); pause(0.1);
-    xippmex_1_12('signal',SS.AvailNeural,'spk',ones(length(SS.AvailNeural),1)); pause(0.1); %all available channels need to be sent to xippmex
+    disp('Initializing neural channels')
+    xippmex_1_12('signal',SS.AvailNeuralHS,'raw',ones(length(SS.AvailNeuralHS),1)); pause(1); %only 1st headstage channels need to be sent
+    xippmex_1_12('signal',SS.AvailNeuralHS,'lfp',zeros(length(SS.AvailNeuralHS),1)); pause(1);
+    xippmex_1_12('signal',SS.AvailNeural,'spk',zeros(length(SS.AvailNeural),1)); pause(1); %all available channels need to be sent to xippmex
     for k=1:length(SS.AvailNeuralHS)
-        xippmex_1_12('filter','set',SS.AvailNeuralHS(k),'spike',3); pause(0.1);
-        xippmex_1_12('fastsettle','stim',SS.AvailNeuralHS(k),3,1); %set to same front port
+        xippmex_1_12('filter','set',SS.AvailNeuralHS(k),'spike',3); pause(1);
+        xippmex_1_12('fastsettle','stim',SS.AvailNeuralHS(k),1,1); %set to same front port
     end
 end
 
 % Enabling appropriate emg channels
 if ~isempty(SS.AvailEMG)
-    xippmex_1_12('signal',SS.AvailEMGHS,'raw',ones(length(SS.AvailEMGHS),1)); pause(0.1);
-    xippmex_1_12('signal',SS.AvailEMGHS,'lfp',ones(length(SS.AvailEMGHS),1)); pause(0.1);
-    xippmex_1_12('signal',SS.AvailEMG,'spk',zeros(length(SS.AvailEMG),1)); pause(0.1);
+    disp('Initializing EMG channels')
+    xippmex_1_12('signal',SS.AvailEMGHS,'raw',zeros(length(SS.AvailEMGHS),1)); pause(1);
+    xippmex_1_12('signal',SS.AvailEMGHS,'lfp',ones(length(SS.AvailEMGHS),1)); pause(1);
+    xippmex_1_12('signal',SS.AvailEMG,'spk',zeros(length(SS.AvailEMG),1)); pause(1);
     for k=1:length(SS.AvailEMGHS)
-        xippmex_1_12('filter','set',SS.AvailEMGHS(k),'lfp',4); pause(0.1); %bandpass "EMG" 15-350 to start
-        xippmex_1_12('filter','set',SS.AvailEMGHS(k),'lfp notch',3); pause(0.1); %notch to start
+        xippmex_1_12('filter','set',SS.AvailEMGHS(k),'lfp',4); pause(1); %bandpass "EMG" 15-350 to start
+        xippmex_1_12('filter','set',SS.AvailEMGHS(k),'lfp notch',3); pause(1); %notch to start
     end
 end
 
 % Enabling appropriate stim channels
 if ~isempty(SS.AvailStim)
-    xippmex_1_12('signal',SS.AvailStim,'stim',ones(length(SS.AvailStim),1)); pause(0.1);
+    disp('Initializing stim')
+    xippmex_1_12('signal',SS.AvailStim,'stim',ones(length(SS.AvailStim),1)); pause(1);
 end
 
 % Enabling appropriate analog channels
 if ~isempty(SS.AvailAnalog)
-    xippmex_1_12('signal',SS.AvailAnalog,'1ksps',ones(length(SS.AvailAnalog),1)); pause(0.1);
-    xippmex_1_12('signal',SS.AvailAnalog,'30ksps',zeros(length(SS.AvailAnalog),1)); pause(0.1);
+    disp('Initializing analog channels')
+    xippmex_1_12('signal',SS.AvailAnalog,'1ksps',ones(length(SS.AvailAnalog),1)); pause(1);
+    xippmex_1_12('signal',SS.AvailAnalog,'30ksps',zeros(length(SS.AvailAnalog),1)); pause(1);
 end
 
 % Disabling unwanted emg channels

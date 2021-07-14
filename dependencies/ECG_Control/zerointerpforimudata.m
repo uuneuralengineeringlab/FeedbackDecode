@@ -55,9 +55,24 @@ dyhvdata = data(:,idx1:idx2);
 
 dyoudata = data(:,idx1:idx2);
 
+%%
+tnhh = interper(tnhhdata);
+tnhv = interper(tnhvdata);
+tnou = interper(tnoudata);
+dnhh = interper(dnhhdata);
+dnhv = interper(dnhvdata);
+dnou = interper(dnoudata);
+dyhh = interper(dyhhdata);
+dyhv = interper(dyhvdata);
+dyou = interper(dyoudata);
+
+%%
+dataf = interper(data);
+
 
 %% interpolate to fill in zeros (should address data acq in fbd to reduce this)
-testdata = tnhhdata(:,1:20);
+function fixeddata = interper(testdata)
+%testdata = tnhhdata(:,1:20);
 fixeddata = testdata;
 for row = 2:31
     idx = find(testdata(row,:) == 0);
@@ -67,28 +82,17 @@ for row = 2:31
     b=find([a inf]>1);
     c=diff([0 b]);  % length of the sequences
     if length(c) >1
-        d=cumsum(c);  % endpoints of the sequences
-        for dd=1:length(d)
-            if d(dd) - c(dd) ~= 1 || d(dd) == length(testdata)
-                fixeddata(row, d(dd) - c(dd) - 1:d(dd) + 1) = linspace(testdata(row, d(dd) - c(dd) - 1),testdata(row, d(dd) + 1), c(dd) + 2);
+        %d=cumsum(c);  % endpoints of the sequences
+        for dd=1:length(idx(b))
+            if idx(b(dd)) - c(dd) ~= 0 && idx(b(dd)) ~= size(testdata,2)
+                fixeddata(row, idx(b(dd)) - c(dd):idx(b(dd))+1) = linspace(testdata(row, idx(b(dd)) - c(dd)),testdata(row, idx(b(dd))+1), c(dd) + 2);
             end
         end
     else
-        if idx ~= 1 || idx ~= length(testdata)
+        if idx ~= 1 || idx ~= size(testdata,2)
             fixeddata(row, idx-1:idx+1) = linspace(testdata(row, idx-1),testdata(row, idx+1), 3);
         end
     end
 end
+end
 
-% A = [0 0 1 1 1 0 0 0 1 1 1] ;
-% idx = find(A==0) ;  % get the indices of 0
-% a=diff(idx);  % get the differences of indices
-% b=find([a inf]>1);
-% c=diff([0 b]);  % length of the sequences
-% d=cumsum(c); %  endpoints of the sequences
-% % Run loop to extract zeros into iwant
-% iwant = cell(length(d),1) ;
-% iwant{1} = A(1:idx(d(1))) ;
-% for i = 2:length(d)
-%     iwant{i} = A(idx(d(i-1)+1:d(i))) ;
-% end

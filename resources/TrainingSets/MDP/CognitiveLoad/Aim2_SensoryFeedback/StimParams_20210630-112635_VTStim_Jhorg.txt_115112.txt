@@ -1,0 +1,6 @@
+thumb_distal		2	0	0	60	500	0.200
+thumb_distal		3	0	0	60	500	0.200
+index_distal		4	0	0	80	500	0.200
+index_distal		5	0	0	60	500	0.200
+index_distal		6	0	0	40	500	0.200
+palm_pinky		7	0	0	100	255	0.200

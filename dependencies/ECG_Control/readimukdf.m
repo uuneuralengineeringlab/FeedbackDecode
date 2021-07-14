@@ -1,4 +1,4 @@
-function [imutime, accel, rategyro, maghead, Data] = readimukdf(fname)
+function [imutime, accel, rategyro, maghead, quaternion, Data] = readimukdf(fname)
 
 % Reads in data saved to *.kdf file (Kalman decode filespec). This data is
 % saved to disk when running FeedbackDecode.vi.
@@ -20,7 +20,7 @@ imutime = {};
 accel = {};
 rategyro = {};
 maghead = {};
-
+quaternion = {};
 for index = 1:Header(2)
     offset = (index-1)*10;
 
@@ -31,6 +31,8 @@ for index = 1:Header(2)
     rategyro{index} = Data(6+offset:8+offset,:);
 
     maghead{index} = Data(9+offset:11+offset,:);
+    
+    quaternion{index} = Data(12+offset:15+offset,:);
 end
 
 end
