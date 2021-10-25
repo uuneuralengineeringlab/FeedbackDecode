@@ -1,4 +1,4 @@
-function FeedbackDecode(LabviewIP)
+ function FeedbackDecode(LabviewIP)
 
 % Starting log file
 SS.RootDir = fileparts(mfilename('fullpath'));
@@ -42,6 +42,7 @@ try
     SS = acqCont(SS);
     SS = acqTraining(SS);
     SS = acqBaseline(SS);
+    
     SS = runTesting(SS); %SS.XHat
     SS = cogLoad(SS);
     SS = sendStim(SS);
@@ -90,7 +91,10 @@ if SS.ARD3.Ready; fclose(SS.ARD3.Obj); delete(SS.ARD3.Obj); end
 if isfield(SS,'PHandFID'); fclose(SS.PHandFID); end
 if SS.DEKA.Ready; lkmex('stop'); clear lkmex; end
 if SS.TASKA.Ready; closeTASKA(SS.TASKA.Obj); delete(SS.TASKA.Obj); end % dk 2018-01-26
-if SS.TASKASensors.Ready; closeTASKASensors_simple(SS.TASKASensors.Obj); delete(SS.TASKASensors.Obj); end % jag 7/26/18
+% if SS.TASKASensors.Ready; closeTASKASensors_simple(SS.TASKASensors.Obj); delete(SS.TASKASensors.Obj); end % jag 7/26/18
+if SS.TASKASensors.Obj.Ready;  delete(SS.TASKASensors.Obj); end % ESS 8/18/21
+
+
 if SS.ConnectECG
     if isfield(SS,'shimmerECG')
         ecgstop(SS.shimmerECG);
@@ -251,7 +255,7 @@ SS.IMU.ShoulderAngles = [0,0,0];
 % Initialize low-cost Nathan Taska wrist TNT 4/7/21
 try
     [SS.LCWrist, SS.LCWrist_LastKin ] = initiateTaskaWrist();
-    SS.LCWrist_history = [0, 0, 0; 0, 0, 0];
+    SS.LCWrist_history = zeros(2,20);
     SS.LCWrist_Ready = 1;
     disp("Low-Cost Taska Wrist Connected");
     
@@ -460,6 +464,7 @@ SS = startTASKA(SS); % dk 2018-01-26
 pause(1)
 fwrite(SS.UDPEvnt,'MatlabReady');
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Acquiring data
 function SS = acqData(SS)
@@ -658,30 +663,85 @@ end
 SS.EMGDiffBuffIdx = circshift(SS.EMGDiffBuffIdx,[0,-SS.DLEMG]);
 
 % Acquire TASKA Sensor values
-if(SS.TASKASensors.Ready)
+%if(SS.TASKASensors.Ready)
+% if(SS.TASKASensors.Obj.Ready) %ESS081821
+%     %prep buffer
+%     SS.TASKASensors.IRraw = circshift(SS.TASKASensors.IRraw,-1,2);
+%     SS.TASKASensors.baroraw = circshift(SS.TASKASensors.baroraw,-1,2);
+%     %read data
+%     [SS.TASKASensors.IRraw(:,end), SS.TASKASensors.baroraw(:,end)] = readTASKASensors_simple(SS.TASKASensors.Obj,SS.TASKASensors.Count);
+%     %subtract baseline
+%     SS.TASKASensors.prevIR = SS.TASKASensors.IR; % TCH 7/7/20
+%     SS.TASKASensors.IR = median(SS.TASKASensors.IRraw,2) - SS.TASKASensors.BL.IR;% - 0.05*SS.TASKASensors.BL.IR;   %subtract baseline and small error window
+%     SS.TASKASensors.baro = median(SS.TASKASensors.baroraw,2) - SS.TASKASensors.BL.baro;
+%     SS.TASKASensors.IR(SS.TASKASensors.IR < 0) = 0;
+%     SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
+%     %update thumb pressure to account for drift
+%     if(SS.TASKASensors.IR(4) <= 40)
+%         tempP = median(SS.TASKASensors.baroraw,2);
+%         SS.TASKASensors.BL.baro(4) = tempP(4);
+%     end
+% end
+
+% Acquire TASKA Sensor values
+if(SS.TASKASensors.Obj.Ready)
     %prep buffer
-    SS.TASKASensors.IRraw = circshift(SS.TASKASensors.IRraw,-1,2);
+    SS.TASKASensors.IRraw = circshift(SS.TASKASensors.IRraw,-1,2); % this won't really do anything if IRraw is a column vector instead of a buffer
     SS.TASKASensors.baroraw = circshift(SS.TASKASensors.baroraw,-1,2);
     %read data
-    [SS.TASKASensors.IRraw(:,end), SS.TASKASensors.baroraw(:,end)] = readTASKASensors_simple(SS.TASKASensors.Obj,SS.TASKASensors.Count);
-    %subtract baseline
-    SS.TASKASensors.prevIR = SS.TASKASensors.IR; % TCH 7/7/20
-    SS.TASKASensors.IR = median(SS.TASKASensors.IRraw,2) - SS.TASKASensors.BL.IR;% - 0.05*SS.TASKASensors.BL.IR;   %subtract baseline and small error window
-    SS.TASKASensors.baro = median(SS.TASKASensors.baroraw,2) - SS.TASKASensors.BL.baro;
-    SS.TASKASensors.IR(SS.TASKASensors.IR < 0) = 0;
-    SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
-    %update thumb pressure to account for drift
-    if(SS.TASKASensors.IR(4) <= 40)
-        tempP = median(SS.TASKASensors.baroraw,2);
-        SS.TASKASensors.BL.baro(4) = tempP(4);
-    end
+    SS.TASKASensors.IRraw(:,end) = median(SS.TASKASensors.Obj.Status.IRSmallBuff,2); % median filter of small window of Arduino data
+    SS.TASKASensors.baroraw(:,end) = median(SS.TASKASensors.Obj.Status.BAROSmallBuff,2);
+    
+    %subtract baseline from raw IR
+    SS.TASKASensors.IR = SS.TASKASensors.IRraw(:,end) - SS.TASKASensors.BL.IR;
+    
+%    if(SS.TASKASensors.ThumbKF.Enabled)
+%        % subtract baseline for pressure sensors
+%        SS.TASKASensors.baro = SS.TASKASensors.baroraw(:,end) - SS.TASKASensors.BL.baro;
+%        % overwrite thumb using KF prediction
+%        if(SS.TASKASensors.ThumbKF.Init)
+%            SS.TASKASensors.baro(4) = kalman_test_bias(SS.TASKASensors.baroraw(4),SS.TASKASensors.ThumbKF.TRAIN,[-1,1],1);
+%            SS.TASKASensors.ThumbKF.Init = 0;
+%        else
+%            SS.TASKASensors.baro(4) = kalman_test_bias(SS.TASKASensors.baroraw(4),SS.TASKASensors.ThumbKF.TRAIN,[-1,1],0);
+%        end
+%        %scale thumb to 0-10 (otherwise it's 0 to 1)
+%        SS.TASKASensors.baro(4) = SS.TASKASensors.baro(4)*10;
+%        % ensure no values below zero
+%        SS.TASKASensors.IR(SS.TASKASensors.IR < 0) = 0;
+%        SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
+%    else
+        % set up adaptive baseline for pressure sensor on each digit
+        if any(SS.TASKASensors.IR > SS.TASKASensors.SharedControl.IRMin) % check to see if any digits have high IR
+            update_idx = SS.TASKASensors.IR <= SS.TASKASensors.SharedControl.IRMin; % only update those with low IR
+        else
+            % if none have high IR, just update pressure baseline to be previous baro value
+            update_idx = true(4,1);
+        end
+        SS.TASKASensors.BL.baro(update_idx) = SS.TASKASensors.baroraw(update_idx,end-1);
+    %     disp(SS.TASKASensors.BL.baro(4));
+
+        SS.TASKASensors.baro = SS.TASKASensors.baroraw(:,end) - SS.TASKASensors.BL.baro;
+
+        % ensure no values below zero
+        SS.TASKASensors.IR(SS.TASKASensors.IR < 0) = 0;
+%         SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
+
+        % run high-pass filter for pressure data
+%        [SS.TASKASensors.press_filt, SS.TASKASensors.diff_baro] = mtHPFilt(SS.TASKASensors);
+%        SS.TASKASensors.prevbaro = SS.TASKASensors.baro; % save current baro for next loop
+        SS.TASKASensors.press_filt = SS.TASKASensors.baro;
+        SS.TASKASensors.baro = max(SS.TASKASensors.press_filt, 0);
 end
+
 
 % IMU Stuff
 % pull live IMU data, compute kinematics, send to decode, etc
 try
     if SS.shimmerIMU_Ready
         newIMUdata = [];
+        disp('get')
+        
         for index = 1:length(SS.shimmerIMU)
             newstuff = SS.shimmerIMU(index).getdata('c');
             if ~isempty(newstuff)
@@ -690,12 +750,16 @@ try
                 newIMUdata = [newIMUdata SS.shimmerIMUData(1+14*(index-1):14+14*(index-1))];
             end
         end
-        SS.shimmerIMUData = newIMUdata;
+        %SS.shimmerIMUData(1:42) = newIMUdata;
 
         % perform joint angle calculations
-        R1 = quat2rnew(SS.shimmerIMUData(end,11:14));
-        R2 = quat2rnew(SS.shimmerIMUData(end,25:28));
-        R3 = quat2rnew(SS.shimmerIMUData(end,39:42));
+%         R1 = quat2rnew(SS.shimmerIMUData(end,11:14));
+%         R2 = quat2rnew(SS.shimmerIMUData(end,25:28));
+%         R3 = quat2rnew(SS.shimmerIMUData(end,39:42));
+disp('calc')
+        R1 = quat2rnew(newIMUdata(end,11:14));
+        R2 = quat2rnew(newIMUdata(end,25:28));
+        R3 = quat2rnew(newIMUdata(end,39:42));
         if ~SS.imucalib % check if calibration frame has been set
             R12 = R1'*R2;
             R23 = R2'*R3;
@@ -709,11 +773,16 @@ try
         [a12,b12,g12] = R2abgtests(R12, 1);
         [a23,b23,g23] = R2abgtests(R23, 1);
         SS.IMU.WaistAngles = [a12,b12,g12]*180/pi;
+%         SS.shimmerIMUData(43:45) = SS.IMU.WaistAngles;
         SS.IMU.ShoulderAngles = [a23,b23,g23]*180/pi;
+%         SS.shimmerIMUData(46:48) = SS.IMU.ShoulderAngles;
+        SS.shimmerIMUData = [newIMUdata, SS.IMU.WaistAngles, SS.IMU.ShoulderAngles];
     end
+    
 catch
     disp('IMU Failure')
 end
+
 
 
 
@@ -938,7 +1007,7 @@ if SS.UDPEvnt.BytesAvailable
                 %                         mj_set_rgba('geom',SS.VRETargetIdx(k),[0 0 0 0]);
                 %                     end
                 %                 end
-                disp('Hide or unhide Spheres...')
+%                 disp('Hide or unhide Spheres...')
             case 'Failure'
                 SS.TargOn = 0;
             case 'LinkDOF' % SS.LinkedDOF = {[1,3,4];[2,5];};
@@ -1115,7 +1184,8 @@ if SS.UDPEvnt.BytesAvailable
                 %fwrite(SS.UDPEvntAux,sprintf('CalibrateDEKA:'));
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             case 'CalibrateTASKA'
-                if (SS.TASKASensors.Ready)
+%                 if (SS.TASKASensors.Ready)
+               if(SS.TASKASensors.Obj.Ready) %ESS081821
                     tempLen = 200;
                     tempIR = zeros(4,tempLen);
                     tempbaro = zeros(4,tempLen);
@@ -1357,7 +1427,7 @@ if SS.UDPEvnt.BytesAvailable
                     [SS.shimmerIMU, ~,SS.shimmerIMU_Ready] = imuconnect(3);
                     
                     % Starting IMU task file
-                    SS.shimmerIMUData = zeros(1,14*length(SS.shimmerIMU));
+                    SS.shimmerIMUData = zeros(1,14*length(SS.shimmerIMU)+6);
                     SS.shimmerIMUTaskFile = fullfile(SS.FullDataFolder,['\IMUTaskData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
                     SS.shimmerIMUTaskFID = fopen(SS.shimmerIMUTaskFile,'w+');
                     fwrite(SS.shimmerIMUTaskFID, [length(SS.XippTS);length(SS.shimmerIMU);length(SS.shimmerIMUData)],'single'); %writing header
@@ -1371,9 +1441,9 @@ if SS.UDPEvnt.BytesAvailable
                     end
                 end
             case 'CalibrateIMU'
-                calibquat = [SS.shimmerIMUData(end,11:14); SS.shimmerIMUData(end,25:28); SS.shimmerIMUData(end,39:42)]
-                SS.imucalibr = quat2rnew(calibquat)
-                SS.imucalib = 1
+                calibquat = [SS.shimmerIMUData(end,11:14); SS.shimmerIMUData(end,25:28); SS.shimmerIMUData(end,39:42)];
+                SS.imucalibr = quat2rnew(calibquat);
+                SS.imucalib = 1;
         end %switch
     catch ME
         assignin('base','ME',ME)
@@ -2235,7 +2305,11 @@ if SS.TASKA.Ready
             SS.TASKA.Count = SS.TASKA.Count+1;
         end
         if SS.LCWrist_Ready
-            SS.LCWrist_history = [SS.LCWrist_history(:,2:3) [-CurrX(10); -CurrX(12)]];
+            SS.LCWrist_history = [SS.LCWrist_history(:,2:20) [-CurrX(10); -CurrX(12)]]; %% 1st row is one DOF 2nd row is second DOF
+            updateTaskaWrist(SS.LCWrist, mean(SS.LCWrist_history,2)); %% Takes mean rowise
+            
+            
+            
             %                 %%% Use to save Kinematic Data to use with LPF %%%  NOT
             %                 IMPLEMENTED IN FEEDBACK DECODE BUT IMPLEMENTED WITH LEAP
             %                 MOTION
@@ -2246,7 +2320,7 @@ if SS.TASKA.Ready
             %                 updateTaskaWrist(SS.LCWrist, [-CurrX(10);CurrX(12)]); % values negative because Left hand
             
             %SS.LCWrist_LastKin = taskamover(SS.LCWrist, SS.LCWrist_LastKin, [CurrX(10) ; -CurrX(12)]);
-            updateTaskaWrist(SS.LCWrist, mean(SS.LCWrist_history,2));
+            
             
         end
     catch ME
@@ -2417,7 +2491,12 @@ if ~isempty(SS.StimChan)
                         %                             SS.ContStimAmp(k) = VRESensor2Amp_step(SS.VREInfo.sensors.contact,SS.VREContactLabelsLuke,SS.VREInfo.sensors.motor_pos,SS.VREMotorLabelsLuke,SS.VREInfo.robot.motor_limit,SS.StimCell(k,:),'Luke');
                     end
                 end
-            case '3DHand'
+            case '3DHand' %switched 08182021 ESS to workaround a labview issue             
+%                 for ifor i[SS.ContStimFreq(k), SS.ContStimAmp(k)] = TASKASensors2Stim(SS.TASKASensors.IR, SS.TASKASensors.baro, SS.TASKASensorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
+%                 if k == 3
+%                     SS.TASKASensors.IR
+%                     SS.ContStimFreq
+%                 end
                 if SS.ARD3.Ready
                     try
                         SS.ContStimFreq(k) = PHand2Freq(SS.PHandContactVals,SS.PHandContactLabels,SS.PHandMotorVals,SS.PHandMotorLabels,SS.StimCell(k,:));
@@ -2434,6 +2513,8 @@ if ~isempty(SS.StimChan)
                 end
             case 'DEKA'
                 [SS.ContStimFreq(k), SS.ContStimAmp(k)] = DEKA2Stim(SS.ContDEKASensors,SS.PastDEKASensors,SS.DEKASensorLabels,SS.ContDEKAMotors,SS.PastDEKAMotors,SS.DEKAMotorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
+            case 'TASKA'
+                [SS.ContStimFreq(k), SS.ContStimAmp(k)] = TASKASensors2Stim(SS.TASKASensors.IR, SS.TASKASensors.baro, SS.TASKASensorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
             case 'Analog(DEKA)'
                 [SS.ContStimFreq(k), SS.ContStimAmp(k)] = analogDEKA2Stim(SS.AnalogSensors,SS.ContDEKAMotors,SS.PastDEKAMotors,SS.DEKAMotorLabels,SS.StimCell(k,:));
         end
@@ -2920,54 +3001,134 @@ else % do not attempt connection
     SS.TASKA.Ready = 0;
 end
 
-function SS = initTASKASensors(SS)
-% while 1
-%     connPrompt = input('Connect Taska Sensors? (Y/N): ', 's');
-%
-%     if length(connPrompt) == 1 && any(connPrompt == 'YyNn10')
-%         if any(connPrompt == 'Yy1')
-%             attemptConnection = 1;
-%         else
-%             attemptConnection = 0;
+% function SS = initTASKASensors(SS) 08182021 ESS trying an updated
+% version of inittaskasensors
+% % while 1
+% %     connPrompt = input('Connect Taska Sensors? (Y/N): ', 's');
+% %
+% %     if length(connPrompt) == 1 && any(connPrompt == 'YyNn10')
+% %         if any(connPrompt == 'Yy1')
+% %             attemptConnection = 1;
+% %         else
+% %             attemptConnection = 0;
+% %         end
+% %         break
+% %     end
+% % end
+% SS.TASKASensorLabels = {'index_ir';'middle_ir';'thumb_ir';'index_bar';'middle_bar';'thumb_bar';};
+% SS.TASKASensors.IR = zeros(4,1);
+% SS.TASKASensors.baro = zeros(4,1);
+% SS.TASKASensors.BL.IR = [0;0;0;0];%[8499;9411;5788;6687];
+% SS.TASKASensors.BL.baro = [0;0;0;0];%[2151;2155;2161;0];
+% SS.TASKASensors.window = 10; %actual window length is window + 1
+% SS.TASKASensors.IRraw = zeros(4,SS.TASKASensors.window);
+% SS.TASKASensors.baroraw = zeros(4,SS.TASKASensors.window);
+% SS.TASKASensors.SharedControl.Ready = 0;
+% SS.TASKASensors.SharedControl.Beta = 0;
+% SS.TASKASensors.SharedControl.ComputerGoal = 'Close';
+% SS.TASKASensors.SharedControl.BetaMode = 'Fixed';
+% SS.TASKASensors.SharedControl.Increment = 0.01;
+% 
+% if SS.StartTaskaSens
+%     try
+%         load('C:\Users\Administrator\Code\Tasks\FeedbackDecode\resources\TaskaSharedControlLinearFits.mat');
+%         SS.TASKASensors.SharedControl.Fit = fits;
+%         SS.TASKASensors.ActiveSensors = [3,2,1,5]; %ring, middle, index, thumb (mapping)
+%         SS.TASKASensors.SharedEnabled = [0,0,0,0,1,0]; %index, middle, ring, pinky, thumb, thumbint
+%         if isfield(SS,'TASKASensors')
+%             if isfield(SS.TASKASensors,'Obj')
+%                 if isobject(SS.TASKASensors.Obj)
+%                     delete(SS.TASKASensors.Obj);
+%                 end
+%             end
 %         end
-%         break
+%         [SS.TASKASensors.Obj, SS.TASKASensors.Count, SS.TASKASensors.Ready] = openTASKASensors_simple();
+%         if SS.TASKASensors.Ready == 1
+%             [SS.TASKASensors.IRraw(:,end), SS.TASKASensors.baroraw(:,end)] = readTASKASensors_simple(SS.TASKASensors.Obj,SS.TASKASensors.Count);
+%             disp('TASKA Sensors connected')
+%         else
+%             disp('TASKA Sensors failed to connect. Check arduino connection')
+%             fclose(SS.TASKASensors.Obj);
+%             delete(SS.TASKASensors.Obj);
+%         end
+%     catch
+%         if isfield(SS,'TASKASensors')
+%             if isfield(SS.TASKASensors,'Obj')
+%                 if isobject(SS.TASKASensors.Obj)
+%                     delete(SS.TASKASensors.Obj);
+%                 end
+%             end
+%         end
+%         SS.TASKASensors.Ready = 0;
+%         disp('TASKA Sensors initialization failed.')
 %     end
+% else % do not attempt connection
+%     SS.TASKASensors.Ready = 0;
 % end
 
+function SS = initTASKASensors(SS) % 08182021 trying a new version (this one) of this function, from JAGLab
+
+%SS.TASKASensorLabels = {'index_ir';'middle_ir';'thumb_ir';'index_bar';'middle_bar';'thumb_bar';};
+SS.TASKASensorLabels = {'index_distal';'middle_distal';'thumb_distal';'index_medial';'ring_distal';'thumb_medial';};
 SS.TASKASensors.IR = zeros(4,1);
 SS.TASKASensors.baro = zeros(4,1);
 SS.TASKASensors.BL.IR = [0;0;0;0];%[8499;9411;5788;6687];
 SS.TASKASensors.BL.baro = [0;0;0;0];%[2151;2155;2161;0];
 SS.TASKASensors.window = 10; %actual window length is window + 1
-SS.TASKASensors.IRraw = zeros(4,SS.TASKASensors.window);
-SS.TASKASensors.baroraw = zeros(4,SS.TASKASensors.window);
+SS.TASKASensors.IRraw = zeros(4,1);
+SS.TASKASensors.baroraw = zeros(4,2); % changed 20210305 TCH from zeros(4,1)
+SS.TASKASensors.force_est = zeros(4,1); % mt 20200526
+SS.TASKASensors.IRrawzf = zeros(4,1); % last raw data with zeros accounted for with previous non-zero values
+SS.TASKASensors.barorawzf = zeros(4,1); % last raw data with zeros accounted for with previous non-zero values
+% High pass filter, may be unused
+SS.TASKASensors.press_filt = zeros(4,1);
+SS.TASKASensors.diff_baro = zeros(4,1);
+SS.TASKASensors.prevIR = zeros(4,10); % small window to prevent downward spikes in IR
+SS.TASKASensors.prevbaro = zeros(4,1);
+% Kalman Filter, may be unused
+SS.TASKASensors.ThumbKF.Enabled = 0;
+% load('TASKAThumbKFCalibrationFile_LagCorrected','TRAIN');
+SS.TASKASensors.ThumbKF.TRAIN = [];
+SS.TASKASensors.ThumbKF.Init = 1;
+%
 SS.TASKASensors.SharedControl.Ready = 0;
+SS.TASKASensors.SharedControl.HPFAlpha = 0.9;
 SS.TASKASensors.SharedControl.Beta = 0;
-SS.TASKASensors.SharedControl.ComputerGoal = 'Close';
+SS.TASKASensors.SharedControl.ComputerGoal = 'MaxIRminPR';
 SS.TASKASensors.SharedControl.BetaMode = 'Fixed';
-SS.TASKASensors.SharedControl.Increment = 0.01;
+SS.TASKASensors.SharedControl.Increment = 0.05;
+SS.TASKASensors.SharedControl.IRMin = 200;
+SS.TASKASensors.SharedControl.BRMin = 7;
+SS.TASKASensors.SharedControl.Toggle.Enabled = 0;
+SS.TASKASensors.SharedControl.Toggle.MinThresh = -0.1;
+SS.TASKASensors.SharedControl.Toggle.MaxThresh = 0.1;
+SS.TASKASensors.ActiveSensors = [3,2,1,5]; %ring, middle, index, thumb (mapping)
+SS.TASKASensors.SharedEnabled = [0,0,0,0,0,0]; %index, middle, ring, pinky, thumb, thumbint
+SS.TASKASensors.SharedControl.HumanGoal = [0;0;0;0;0;0];
+SS.TASKASensors.SharedControl.MachineGoal = [0;0;0;0;0;0];
+SS.TASKASensors.SharedControl.SharedGoal = [0;0;0;0;0;0];
 
 if SS.StartTaskaSens
     try
-        load('C:\Users\Administrator\Code\Tasks\FeedbackDecode\resources\TaskaSharedControlLinearFits.mat');
-        SS.TASKASensors.SharedControl.Fit = fits;
-        SS.TASKASensors.ActiveSensors = [3,2,1,5]; %ring, middle, index, thumb (mapping)
-        SS.TASKASensors.SharedEnabled = [0,0,0,0,1,0]; %index, middle, ring, pinky, thumb, thumbint
-        if isfield(SS,'TASKASensors')
+%         load('C:\Users\Administrator\Code\Tasks\FeedbackDecode\resources\TaskaSharedControlLinearFits.mat'); % commented out TCH 2/8/21
+%         SS.TASKASensors.SharedControl.Fit = fits;
+         if isfield(SS,'TASKASensors')
             if isfield(SS.TASKASensors,'Obj')
                 if isobject(SS.TASKASensors.Obj)
                     delete(SS.TASKASensors.Obj);
                 end
             end
-        end
-        [SS.TASKASensors.Obj, SS.TASKASensors.Count, SS.TASKASensors.Ready] = openTASKASensors_simple();
-        if SS.TASKASensors.Ready == 1
-            [SS.TASKASensors.IRraw(:,end), SS.TASKASensors.baroraw(:,end)] = readTASKASensors_simple(SS.TASKASensors.Obj,SS.TASKASensors.Count);
+         end
+        SS.TASKASensors.Obj = TASKASensors_nrf52; % mt 20210526 new sensors obj
+        if SS.TASKASensors.Obj.Ready
+            SS.TASKASensors.IRraw(:,end) = median(SS.TASKASensors.Obj.Status.IRSmallBuff,2);
+            SS.TASKASensors.baroraw(:,end) = median(SS.TASKASensors.Obj.Status.BAROSmallBuff,2);
+%            SS.TASKASensors.force_est(:,end) = 
+%             SS.TASKASensors.IRraw(:,end) = SS.TASKASensors.Obj.Status.IR;
+%             SS.TASKASensors.baroraw(:,end) = SS.TASKASensors.Obj.Status.BARO;
             disp('TASKA Sensors connected')
         else
             disp('TASKA Sensors failed to connect. Check arduino connection')
-            fclose(SS.TASKASensors.Obj);
-            delete(SS.TASKASensors.Obj);
         end
     catch
         if isfield(SS,'TASKASensors')
@@ -2977,11 +3138,11 @@ if SS.StartTaskaSens
                 end
             end
         end
-        SS.TASKASensors.Ready = 0;
+        SS.TASKASensors.Obj.Ready = false;
         disp('TASKA Sensors initialization failed.')
     end
 else % do not attempt connection
-    SS.TASKASensors.Ready = 0;
+    SS.TASKASensors.Obj.Ready = false;
 end
 
 function SS = initAnalogSensors(SS)
@@ -3121,7 +3282,40 @@ DEKAData = [
 fwrite(SS.DEKAFID,DEKAData,'single');
 
 % dk 2018-01-26
-function saveTASKA(SS,mode)
+%ess 08182021 trying new version
+% function saveTASKA(SS,mode)
+% if mode %writing header
+%     TASKAHeader = [
+%         size(SS.XippTS-SS.RecStart)
+%         size(SS.TASKA.Ready)
+%         size(SS.TASKAMotors)
+%         size(SS.TASKASensors.IR)
+%         size(SS.TASKASensors.baro)
+%         size(SS.TASKASensors.IRraw)
+%         size(SS.TASKASensors.baroraw)
+%         size(SS.TASKASensors.SharedControl.Ready)
+%         size(SS.TASKASensors.SharedControl.Beta)
+%         ];
+%     
+%     fwrite(SS.TASKAFID,[numel(TASKAHeader);TASKAHeader(:)],'single'); %saving data to TASKA data file (see readTASKAData)
+% end
+% 
+% TASKAData = [
+%     SS.XippTS-SS.RecStart
+%     SS.TASKA.Ready
+%     SS.TASKAMotors(:)
+%     SS.TASKASensors.IR(:)
+%     SS.TASKASensors.baro(:)
+%     SS.TASKASensors.IRraw(:)
+%     SS.TASKASensors.baroraw(:)
+%     SS.TASKASensors.SharedControl.Ready
+%     SS.TASKASensors.SharedControl.Beta
+%     ];
+% 
+% fwrite(SS.TASKAFID,TASKAData,'single');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function saveTASKA(SS,mode) %ess 08182021 trying new version
 if mode %writing header
     TASKAHeader = [
         size(SS.XippTS-SS.RecStart)
@@ -3133,6 +3327,9 @@ if mode %writing header
         size(SS.TASKASensors.baroraw)
         size(SS.TASKASensors.SharedControl.Ready)
         size(SS.TASKASensors.SharedControl.Beta)
+        size(SS.TASKASensors.SharedControl.HumanGoal)
+        size(SS.TASKASensors.SharedControl.MachineGoal)
+        size(SS.TASKASensors.SharedControl.SharedGoal)
         ];
     
     fwrite(SS.TASKAFID,[numel(TASKAHeader);TASKAHeader(:)],'single'); %saving data to TASKA data file (see readTASKAData)
@@ -3148,10 +3345,12 @@ TASKAData = [
     SS.TASKASensors.baroraw(:)
     SS.TASKASensors.SharedControl.Ready
     SS.TASKASensors.SharedControl.Beta
+    SS.TASKASensors.SharedControl.HumanGoal(:)
+    SS.TASKASensors.SharedControl.MachineGoal(:)
+    SS.TASKASensors.SharedControl.SharedGoal(:)
     ];
 
 fwrite(SS.TASKAFID,TASKAData,'single');
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function SS = initVRE(SS)
 
@@ -3667,7 +3866,7 @@ if ~isempty(SS.AvailNeuralHS)
     if all(SS.SfNeural(1)==SS.SfNeural)
         SS.SfNeural = SS.SfNeural(1);
     end
-end
+end 
 SS.SfEMG = 0.25;
 if ~isempty(SS.AvailEMGHS)
     SS.SfEMG = SS.SfTable(xippmex_1_12('adc2phys',SS.AvailEMGHS));
