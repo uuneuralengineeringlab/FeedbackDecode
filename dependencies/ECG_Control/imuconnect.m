@@ -10,11 +10,15 @@ end
 compName = getenv('computername');
 switch compName
     case 'PNIMATLAB'
-         comPorts = {'13', '19','21'}; % 22: B0A3, 20: C7C1, 12: 6C61, 18: 49C6 (most reliable)
+        % comPorts = {6C61, C7C1, B0A3}; Use this order for the line
+        % below10
+         comPorts = {'18', '19', '8'}; % 22: B0A3, 20: C7C1, 12: 6C61, 18: 49C6 (most reliable)
 %        ecgPorts = {'18'}; % 22: B0A3, 21: C7C1, 12: 6C61, 18: 49C6 (most reliable)
     case 'BIOEN-LAPTOP'
         comPorts = {'10'}; % 10: 6C61, need to pair 49C6 and add COM port
     % case ~~new lab laptop~~
+    case 'PNIEXTRA5'
+        comPorts = {'7', '10', '14'};
     otherwise
         fprintf('IMU COM Port not set for this computer')
 end %switch
@@ -63,13 +67,14 @@ if imuConnected% TRUE if the shimmer connects
     for i=1:imuConnected
         % define settings for shimmer
         SensorMacros = SetEnabledSensorsMacrosClass;                               % enabling sensors
-        fs = 256;                                                                  % sample rate in [Hz]  
+        fs = 64;                                                                  % sample rate in [Hz]  
         shimmers(i).setsamplingrate(fs);                                          % set the shimmer sampling rate
         shimmers(i).setinternalboard('9DOF');                                      % Select internal expansion board; select 'ECG' to enable both SENSOR_EXG1 and SENSOR_EXG2
         shimmers(i).disableallsensors;                                            % Disable other sensors
         shimmers(i).setenabledsensors(SensorMacros.GYRO,1,SensorMacros.MAG,1,...   % Enable the gyroscope, magnetometer and accelerometer.
         SensorMacros.ACCEL,1);
         shimmers(i).setaccelrange(0);                                              % Set the accelerometer range to 0 (+/- 1.5g for Shimmer2/2r, +/- 2.0g for Shimmer3)
+        shimmers(i).setorientation3D(1);                                           % Enable orientation3D
         shimmers(i).setgyroinusecalibration(1);
 
         fprintf('Shimmer IMU connected via bluetooth to %s on COM port %d\n', compName, str2double(connectedCOMs{i}));
