@@ -4,7 +4,7 @@ isStopped = 0;
 attempts = 10;
 while ~isStopped && attempts
     pause(0.0005)
-    isStopped = shimmer3.stoploggingonly;
+    isStopped = shimmer3.stop;
     shimmerunix_ms = shimmerUnixTimeConversion_ms();
     attempts = attempts - 1;
 end

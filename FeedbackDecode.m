@@ -103,9 +103,9 @@ if SS.ConnectECG
     end
 end
 if SS.ConnectIMU
-    if isfield(SS,'shimmerIMU')
-        for i = 2:length(SS.shimmerIMU)
-            imudisconnect(SS.shimmerIMU(i));
+    if isfield(SS.IMU,'Object')
+        for i = 1:length(SS.IMU.Object)
+            imudisconnect(SS.IMU.Object(i));
         end
     end
 end
@@ -741,8 +741,8 @@ try
     if SS.IMU.Ready
         newIMUdata = [];
         
-        for index = 1:length(SS.shimmerIMU)
-            newstuff = SS.shimmerIMU(index).getdata('c');
+        for index = 1:length(SS.IMU.Object)
+            newstuff = SS.IMU.Object(index).getdata('c');
             if ~isempty(newstuff)
                 newIMUdata = [newIMUdata newstuff(end,:)];
             else
@@ -1271,10 +1271,10 @@ if SS.UDPEvnt.BytesAvailable
                 end
                 %                 if SS.RecordIMUwithTraining
                 %
-                %                     %imuStartRecordTS = imustart(SS.shimmerIMU);
-                %                     SS.shimmerIMUTrainFile = fullfile(SS.FullDataFolder,['\IMUTrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
-                %                     SS.shimmerIMUTrainFID = fopen(SS.shimmerIMUTrainFile,'w+');
-                %                     fwrite(SS.shimmerIMUTrainFID,[length(SS.XippTS);length(SS.shimmerIMU);length(SS.shimmerIMUData)],'single'); %writing header
+                %                     %imuStartRecordTS = imustart(SS.IMU.Object);
+                %                     SS.IMU.ObjectTrainFile = fullfile(SS.FullDataFolder,['\IMUTrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
+                %                     SS.IMU.ObjectTrainFID = fopen(SS.IMU.ObjectTrainFile,'w+');
+                %                     fwrite(SS.IMU.ObjectTrainFID,[length(SS.XippTS);length(SS.IMU.Object);length(SS.IMU.ObjectData)],'single'); %writing header
                 %
                 %                     %fprintf(SS.CogLoadFID,'TrainingSetStart,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
                 %                     %    [SS.XippTS - SS.RecStart, imuStartRecordTS]);
@@ -1304,11 +1304,11 @@ if SS.UDPEvnt.BytesAvailable
                 fwrite(SS.UDPEvnt,sprintf('StopAcqTraining:KDFFile=%s.kdf;',fname));
                 
                 %                 if SS.RecordIMUwithTraining
-                %                     %imuStopRecordTS = imustop(SS.shimmerIMU);
+                %                     %imuStopRecordTS = imustop(SS.IMU.Object);
                 %                     %fprintf(SS.CogLoadFID,'TrainingSetEnd,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
                 %                     %[SS.XippTS - SS.RecStart, imuStopRecordTS]);
                 %
-                %                     fclose(SS.shimmerIMUTrainFID);
+                %                     fclose(SS.IMU.ObjectTrainFID);
                 %                 end
                 
                 disp('Training stopped')
@@ -1416,23 +1416,24 @@ if SS.UDPEvnt.BytesAvailable
                 end
             case 'ConnectIMU'
                 if SS.ConnectIMU % connect shimmer IMU
-                    [SS.shimmerIMU, ~,SS.IMU.Ready] = imuconnect(3);
+                    [SS.IMU.Object, ~,SS.IMU.Ready] = imuconnect(3);
                     
                     % Starting IMU task file
-                    SS.IMU.Data = zeros(1,14*length(SS.shimmerIMU)+6);
+                    SS.IMU.Data = zeros(1,14*length(SS.IMU.Object)+6);
                     SS.IMU.TaskFile = fullfile(SS.FullDataFolder,['\IMUTaskData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
                     SS.IMU.TaskFID = fopen(SS.IMU.TaskFile,'w+');
-                    fwrite(SS.TaskFID, [length(SS.XippTS);length(SS.shimmerIMU);length(SS.IMU.Data)],'single'); %writing header
+                    fwrite(SS.TaskFID, [length(SS.XippTS);length(SS.IMU.Object);length(SS.IMU.Data)],'single'); %writing header
                     
-                    for i = 1:length(SS.shimmerIMU)
-                        SS.shimmerIMU(i).start;
+                    for i = 1:length(SS.IMU.Object)
+                        SS.IMU.Object(i).start;
                     end
                 else %  disconnect
-                    if isfield(SS,'shimmerIMU')
-                        for i = 1:length(SS.shimmerIMU)
-                            imudisconnect(SS.shimmerIMU(i));
+                    if isfield(SS.IMU,'Object')
+                        for i = 1:length(SS.IMU.Object)
+                            imudisconnect(SS.IMU.Object(i));
                         end
                     end
+                    SS.IMU.Ready = 0;
                 end
             case 'CalibrateIMU'
                 calibquat = [SS.IMU.Data(end,11:14); SS.IMU.Data(end,25:28); SS.IMU.Data(end,39:42)];
