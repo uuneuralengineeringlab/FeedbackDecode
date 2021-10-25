@@ -4,9 +4,9 @@ function [isDisconnected] = imudisconnect(shimmer3)
     [shimmerStatus, islogging] = shimmer3.getstatus;
     
     % stop logging if logging
-%     if islogging
-%         imustop(shimmer3(i))
-%     end
+    if islogging
+        imustop(shimmer3)
+    end
     
     isDisconnected = 0;
     % find if connected

@@ -101,7 +101,6 @@ end
 if SS.ConnectIMU
     if isfield(SS,'shimmerIMU')
         for i = 1:length(SS.shimmerIMU)
-            %SS.shimmerIMU(i).stop;
             imudisconnect(SS.shimmerIMU(i));
         end
     end

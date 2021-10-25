@@ -1,4 +1,4 @@
- function FeedbackDecode(LabviewIP)
+function FeedbackDecode(LabviewIP)
 
 % Starting log file
 SS.RootDir = fileparts(mfilename('fullpath'));
@@ -246,9 +246,9 @@ SS = connectLEAP(SS);
 SS.CyberGlove.Ready = 0;
 SS.CyberGlove.Kinematics = zeros(4,1);
 
-% Initialize SS.shimmerIMU_Ready
-SS.shimmerIMU_Ready = 0;
-SS.imucalib = 0;
+% Initialize SS.sIMU.Ready
+SS.IMU.Ready = 0;
+SS.IMU.Calib = 0;
 SS.IMU.WaistAngles = [0,0,0];
 SS.IMU.ShoulderAngles = [0,0,0];
 
@@ -695,88 +695,80 @@ if(SS.TASKASensors.Obj.Ready)
     %subtract baseline from raw IR
     SS.TASKASensors.IR = SS.TASKASensors.IRraw(:,end) - SS.TASKASensors.BL.IR;
     
-%    if(SS.TASKASensors.ThumbKF.Enabled)
-%        % subtract baseline for pressure sensors
-%        SS.TASKASensors.baro = SS.TASKASensors.baroraw(:,end) - SS.TASKASensors.BL.baro;
-%        % overwrite thumb using KF prediction
-%        if(SS.TASKASensors.ThumbKF.Init)
-%            SS.TASKASensors.baro(4) = kalman_test_bias(SS.TASKASensors.baroraw(4),SS.TASKASensors.ThumbKF.TRAIN,[-1,1],1);
-%            SS.TASKASensors.ThumbKF.Init = 0;
-%        else
-%            SS.TASKASensors.baro(4) = kalman_test_bias(SS.TASKASensors.baroraw(4),SS.TASKASensors.ThumbKF.TRAIN,[-1,1],0);
-%        end
-%        %scale thumb to 0-10 (otherwise it's 0 to 1)
-%        SS.TASKASensors.baro(4) = SS.TASKASensors.baro(4)*10;
-%        % ensure no values below zero
-%        SS.TASKASensors.IR(SS.TASKASensors.IR < 0) = 0;
-%        SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
-%    else
-        % set up adaptive baseline for pressure sensor on each digit
-        if any(SS.TASKASensors.IR > SS.TASKASensors.SharedControl.IRMin) % check to see if any digits have high IR
-            update_idx = SS.TASKASensors.IR <= SS.TASKASensors.SharedControl.IRMin; % only update those with low IR
-        else
-            % if none have high IR, just update pressure baseline to be previous baro value
-            update_idx = true(4,1);
-        end
-        SS.TASKASensors.BL.baro(update_idx) = SS.TASKASensors.baroraw(update_idx,end-1);
+    %    if(SS.TASKASensors.ThumbKF.Enabled)
+    %        % subtract baseline for pressure sensors
+    %        SS.TASKASensors.baro = SS.TASKASensors.baroraw(:,end) - SS.TASKASensors.BL.baro;
+    %        % overwrite thumb using KF prediction
+    %        if(SS.TASKASensors.ThumbKF.Init)
+    %            SS.TASKASensors.baro(4) = kalman_test_bias(SS.TASKASensors.baroraw(4),SS.TASKASensors.ThumbKF.TRAIN,[-1,1],1);
+    %            SS.TASKASensors.ThumbKF.Init = 0;
+    %        else
+    %            SS.TASKASensors.baro(4) = kalman_test_bias(SS.TASKASensors.baroraw(4),SS.TASKASensors.ThumbKF.TRAIN,[-1,1],0);
+    %        end
+    %        %scale thumb to 0-10 (otherwise it's 0 to 1)
+    %        SS.TASKASensors.baro(4) = SS.TASKASensors.baro(4)*10;
+    %        % ensure no values below zero
+    %        SS.TASKASensors.IR(SS.TASKASensors.IR < 0) = 0;
+    %        SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
+    %    else
+    % set up adaptive baseline for pressure sensor on each digit
+    if any(SS.TASKASensors.IR > SS.TASKASensors.SharedControl.IRMin) % check to see if any digits have high IR
+        update_idx = SS.TASKASensors.IR <= SS.TASKASensors.SharedControl.IRMin; % only update those with low IR
+    else
+        % if none have high IR, just update pressure baseline to be previous baro value
+        update_idx = true(4,1);
+    end
+    SS.TASKASensors.BL.baro(update_idx) = SS.TASKASensors.baroraw(update_idx,end-1);
     %     disp(SS.TASKASensors.BL.baro(4));
-
-        SS.TASKASensors.baro = SS.TASKASensors.baroraw(:,end) - SS.TASKASensors.BL.baro;
-
-        % ensure no values below zero
-        SS.TASKASensors.IR(SS.TASKASensors.IR < 0) = 0;
-%         SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
-
-        % run high-pass filter for pressure data
-%        [SS.TASKASensors.press_filt, SS.TASKASensors.diff_baro] = mtHPFilt(SS.TASKASensors);
-%        SS.TASKASensors.prevbaro = SS.TASKASensors.baro; % save current baro for next loop
-        SS.TASKASensors.press_filt = SS.TASKASensors.baro;
-        SS.TASKASensors.baro = max(SS.TASKASensors.press_filt, 0);
+    
+    SS.TASKASensors.baro = SS.TASKASensors.baroraw(:,end) - SS.TASKASensors.BL.baro;
+    
+    % ensure no values below zero
+    SS.TASKASensors.IR(SS.TASKASensors.IR < 0) = 0;
+    %         SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
+    
+    % run high-pass filter for pressure data
+    %        [SS.TASKASensors.press_filt, SS.TASKASensors.diff_baro] = mtHPFilt(SS.TASKASensors);
+    %        SS.TASKASensors.prevbaro = SS.TASKASensors.baro; % save current baro for next loop
+    SS.TASKASensors.press_filt = SS.TASKASensors.baro;
+    SS.TASKASensors.baro = max(SS.TASKASensors.press_filt, 0);
 end
 
 
 % IMU Stuff
 % pull live IMU data, compute kinematics, send to decode, etc
 try
-    if SS.shimmerIMU_Ready
+    if SS.IMU.Ready
         newIMUdata = [];
-        disp('get')
         
         for index = 1:length(SS.shimmerIMU)
             newstuff = SS.shimmerIMU(index).getdata('c');
             if ~isempty(newstuff)
                 newIMUdata = [newIMUdata newstuff(end,:)];
             else
-                newIMUdata = [newIMUdata SS.shimmerIMUData(1+14*(index-1):14+14*(index-1))];
+                newIMUdata = [newIMUdata SS.IMU.Data(1+14*(index-1):14+14*(index-1))];
             end
         end
-        %SS.shimmerIMUData(1:42) = newIMUdata;
-
+        
         % perform joint angle calculations
-%         R1 = quat2rnew(SS.shimmerIMUData(end,11:14));
-%         R2 = quat2rnew(SS.shimmerIMUData(end,25:28));
-%         R3 = quat2rnew(SS.shimmerIMUData(end,39:42));
-disp('calc')
         R1 = quat2rnew(newIMUdata(end,11:14));
         R2 = quat2rnew(newIMUdata(end,25:28));
         R3 = quat2rnew(newIMUdata(end,39:42));
-        if ~SS.imucalib % check if calibration frame has been set
+        if ~SS.IMU.Calib % check if calibration frame has been set
             R12 = R1'*R2;
             R23 = R2'*R3;
         else
-            R1fix=R1'*SS.imucalibr(:,:,1);
-            R2fix=R2'*SS.imucalibr(:,:,2);
-            R3fix=R3'*SS.imucalibr(:,:,3);
+            R1fix=R1'*SS.IMU.CalibrMat(:,:,1);
+            R2fix=R2'*SS.IMU.CalibrMat(:,:,2);
+            R3fix=R3'*SS.IMU.CalibrMat(:,:,3);
             R12=R2fix'*R1fix;
             R23=R3fix'*R2fix;
         end
         [a12,b12,g12] = R2abgtests(R12, 1);
         [a23,b23,g23] = R2abgtests(R23, 1);
         SS.IMU.WaistAngles = [a12,b12,g12]*180/pi;
-%         SS.shimmerIMUData(43:45) = SS.IMU.WaistAngles;
         SS.IMU.ShoulderAngles = [a23,b23,g23]*180/pi;
-%         SS.shimmerIMUData(46:48) = SS.IMU.ShoulderAngles;
-        SS.shimmerIMUData = [newIMUdata, SS.IMU.WaistAngles, SS.IMU.ShoulderAngles];
+        SS.IMU.Data = [newIMUdata, SS.IMU.WaistAngles, SS.IMU.ShoulderAngles];
     end
     
 catch
@@ -1007,7 +999,7 @@ if SS.UDPEvnt.BytesAvailable
                 %                         mj_set_rgba('geom',SS.VRETargetIdx(k),[0 0 0 0]);
                 %                     end
                 %                 end
-%                 disp('Hide or unhide Spheres...')
+                %                 disp('Hide or unhide Spheres...')
             case 'Failure'
                 SS.TargOn = 0;
             case 'LinkDOF' % SS.LinkedDOF = {[1,3,4];[2,5];};
@@ -1184,8 +1176,8 @@ if SS.UDPEvnt.BytesAvailable
                 %fwrite(SS.UDPEvntAux,sprintf('CalibrateDEKA:'));
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             case 'CalibrateTASKA'
-%                 if (SS.TASKASensors.Ready)
-               if(SS.TASKASensors.Obj.Ready) %ESS081821
+                %                 if (SS.TASKASensors.Ready)
+                if(SS.TASKASensors.Obj.Ready) %ESS081821
                     tempLen = 200;
                     tempIR = zeros(4,tempLen);
                     tempbaro = zeros(4,tempLen);
@@ -1277,16 +1269,16 @@ if SS.UDPEvnt.BytesAvailable
                     fwrite(SS.LEAP.FID,[length(SS.XippTS);length(SS.Z);length(SS.X);length(SS.T);length(SS.XHat);length(SS.LEAP.Kinematics);length(SS.LEAP.Connected);length(SS.LEAP.IsRight);length(SS.LEAP.Kinematics2);length(SS.LEAP.Connected2);length(SS.LEAP.IsRight2)],'single'); %writing header
                     SS.LEAP.TRAININGDATA = [];
                 end
-%                 if SS.RecordIMUwithTraining
-%                     
-%                     %imuStartRecordTS = imustart(SS.shimmerIMU);
-%                     SS.shimmerIMUTrainFile = fullfile(SS.FullDataFolder,['\IMUTrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
-%                     SS.shimmerIMUTrainFID = fopen(SS.shimmerIMUTrainFile,'w+');
-%                     fwrite(SS.shimmerIMUTrainFID,[length(SS.XippTS);length(SS.shimmerIMU);length(SS.shimmerIMUData)],'single'); %writing header
-%                     
-%                     %fprintf(SS.CogLoadFID,'TrainingSetStart,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
-%                     %    [SS.XippTS - SS.RecStart, imuStartRecordTS]);
-%                 end
+                %                 if SS.RecordIMUwithTraining
+                %
+                %                     %imuStartRecordTS = imustart(SS.shimmerIMU);
+                %                     SS.shimmerIMUTrainFile = fullfile(SS.FullDataFolder,['\IMUTrainingData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
+                %                     SS.shimmerIMUTrainFID = fopen(SS.shimmerIMUTrainFile,'w+');
+                %                     fwrite(SS.shimmerIMUTrainFID,[length(SS.XippTS);length(SS.shimmerIMU);length(SS.shimmerIMUData)],'single'); %writing header
+                %
+                %                     %fprintf(SS.CogLoadFID,'TrainingSetStart,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
+                %                     %    [SS.XippTS - SS.RecStart, imuStartRecordTS]);
+                %                 end
                 disp('Training started')
             case 'StopAcqBaseline'
                 fclose(SS.BaselineFID);
@@ -1311,13 +1303,13 @@ if SS.UDPEvnt.BytesAvailable
                 [~,fname] = fileparts(SS.KDFTrainFile);
                 fwrite(SS.UDPEvnt,sprintf('StopAcqTraining:KDFFile=%s.kdf;',fname));
                 
-%                 if SS.RecordIMUwithTraining
-%                     %imuStopRecordTS = imustop(SS.shimmerIMU);
-%                     %fprintf(SS.CogLoadFID,'TrainingSetEnd,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
-%                     %[SS.XippTS - SS.RecStart, imuStopRecordTS]);
-%                     
-%                     fclose(SS.shimmerIMUTrainFID);
-%                 end
+                %                 if SS.RecordIMUwithTraining
+                %                     %imuStopRecordTS = imustop(SS.shimmerIMU);
+                %                     %fprintf(SS.CogLoadFID,'TrainingSetEnd,NIPTime=%0.0f,ShimmerUnixTime_ms=%0.0f\r\n', ...
+                %                     %[SS.XippTS - SS.RecStart, imuStopRecordTS]);
+                %
+                %                     fclose(SS.shimmerIMUTrainFID);
+                %                 end
                 
                 disp('Training stopped')
             case 'Success'
@@ -1424,26 +1416,28 @@ if SS.UDPEvnt.BytesAvailable
                 end
             case 'ConnectIMU'
                 if SS.ConnectIMU % connect shimmer IMU
-                    [SS.shimmerIMU, ~,SS.shimmerIMU_Ready] = imuconnect(3);
+                    [SS.shimmerIMU, ~,SS.IMU.Ready] = imuconnect(3);
                     
                     % Starting IMU task file
-                    SS.shimmerIMUData = zeros(1,14*length(SS.shimmerIMU)+6);
-                    SS.shimmerIMUTaskFile = fullfile(SS.FullDataFolder,['\IMUTaskData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
-                    SS.shimmerIMUTaskFID = fopen(SS.shimmerIMUTaskFile,'w+');
-                    fwrite(SS.shimmerIMUTaskFID, [length(SS.XippTS);length(SS.shimmerIMU);length(SS.shimmerIMUData)],'single'); %writing header
+                    SS.IMU.Data = zeros(1,14*length(SS.shimmerIMU)+6);
+                    SS.IMU.TaskFile = fullfile(SS.FullDataFolder,['\IMUTaskData_',SS.DataFolder,'_',SS.DateStr,'.kdf']);
+                    SS.IMU.TaskFID = fopen(SS.IMU.TaskFile,'w+');
+                    fwrite(SS.TaskFID, [length(SS.XippTS);length(SS.shimmerIMU);length(SS.IMU.Data)],'single'); %writing header
                     
                     for i = 1:length(SS.shimmerIMU)
                         SS.shimmerIMU(i).start;
                     end
                 else %  disconnect
                     if isfield(SS,'shimmerIMU')
-                        imudisconnect(SS.shimmerIMU);
+                        for i = 1:length(SS.shimmerIMU)
+                            imudisconnect(SS.shimmerIMU(i));
+                        end
                     end
                 end
             case 'CalibrateIMU'
-                calibquat = [SS.shimmerIMUData(end,11:14); SS.shimmerIMUData(end,25:28); SS.shimmerIMUData(end,39:42)];
-                SS.imucalibr = quat2rnew(calibquat);
-                SS.imucalib = 1;
+                calibquat = [SS.IMU.Data(end,11:14); SS.IMU.Data(end,25:28); SS.IMU.Data(end,39:42)];
+                SS.IMU.CalibrMat = quat2rnew(calibquat);
+                SS.IMU.Calib = 1;
         end %switch
     catch ME
         assignin('base','ME',ME)
@@ -1685,9 +1679,6 @@ if SS.AcqTraining
         fwrite(SS.LEAP.FID,[SS.XippTS-SS.RecStart;SS.Z;SS.X;SS.T;SS.XHat;SS.LEAP.Kinematics;SS.LEAP.Connected;SS.LEAP.IsRight;SS.LEAP.Kinematics2;SS.LEAP.Connected2;SS.LEAP.IsRight2],'single');
         SS.LEAP.TRAININGDATA = [SS.LEAP.TRAININGDATA SS.LEAP.Frame];
     end
-%     if SS.shimmerIMU_Ready
-%         fwrite(SS.shimmerIMUTrainFID,[SS.XippTS-SS.RecStart,SS.shimmerIMUData],'single');
-%     end
     SS.TrainCnt = SS.TrainCnt + 1;
 end
 
@@ -1781,8 +1772,8 @@ switch SS.KinSrc
             case {8,'NN'}
                 try
                     SS.xhat = predict(SS.NN.net,SS.NN.FeatureBuffer);  %predict values
-%                     [SS.NN.net,SS.xhat] = predictAndUpdateState(SS.NN.net,SS.NN.FeatureBuffer);  %predict values
-
+                    %                     [SS.NN.net,SS.xhat] = predictAndUpdateState(SS.NN.net,SS.NN.FeatureBuffer);  %predict values
+                    
                     SS.NN.Prediction = SS.xhat;
                     if(SS.NN.postKalman)
                         SS.xhat = kalman_test(SS.xhat',SS.NN.postKalmanTRAIN,[-1./SS.KalmanGain(:,2),1./SS.KalmanGain(:,1)],0)';
@@ -2491,12 +2482,12 @@ if ~isempty(SS.StimChan)
                         %                             SS.ContStimAmp(k) = VRESensor2Amp_step(SS.VREInfo.sensors.contact,SS.VREContactLabelsLuke,SS.VREInfo.sensors.motor_pos,SS.VREMotorLabelsLuke,SS.VREInfo.robot.motor_limit,SS.StimCell(k,:),'Luke');
                     end
                 end
-            case '3DHand' %switched 08182021 ESS to workaround a labview issue             
-%                 for ifor i[SS.ContStimFreq(k), SS.ContStimAmp(k)] = TASKASensors2Stim(SS.TASKASensors.IR, SS.TASKASensors.baro, SS.TASKASensorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
-%                 if k == 3
-%                     SS.TASKASensors.IR
-%                     SS.ContStimFreq
-%                 end
+            case '3DHand' %switched 08182021 ESS to workaround a labview issue
+                %                 for ifor i[SS.ContStimFreq(k), SS.ContStimAmp(k)] = TASKASensors2Stim(SS.TASKASensors.IR, SS.TASKASensors.baro, SS.TASKASensorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
+                %                 if k == 3
+                %                     SS.TASKASensors.IR
+                %                     SS.ContStimFreq
+                %                 end
                 if SS.ARD3.Ready
                     try
                         SS.ContStimFreq(k) = PHand2Freq(SS.PHandContactVals,SS.PHandContactLabels,SS.PHandMotorVals,SS.PHandMotorLabels,SS.StimCell(k,:));
@@ -2619,9 +2610,9 @@ end
 % Saving task kdf
 function SS = saveTask(SS)
 fwrite(SS.TaskFID,[SS.XippTS-SS.RecStart;SS.Z;SS.X;SS.T;SS.XHat],'single'); %saving data to fTask file (*.kdf filespec, see readKDF)
-if SS.shimmerIMU_Ready
-    if ~isempty(SS.shimmerIMUData)
-        fwrite(SS.shimmerIMUTaskFID,[SS.XippTS-SS.RecStart,SS.shimmerIMUData],'single');
+if SS.IMU.Ready
+    if ~isempty(SS.IMU.Data)
+        fwrite(SS.IMU.TaskFID,[SS.XippTS-SS.RecStart,SS.IMU.Data],'single');
     end
 end
 
@@ -3028,7 +3019,7 @@ end
 % SS.TASKASensors.SharedControl.ComputerGoal = 'Close';
 % SS.TASKASensors.SharedControl.BetaMode = 'Fixed';
 % SS.TASKASensors.SharedControl.Increment = 0.01;
-% 
+%
 % if SS.StartTaskaSens
 %     try
 %         load('C:\Users\Administrator\Code\Tasks\FeedbackDecode\resources\TaskaSharedControlLinearFits.mat');
@@ -3110,22 +3101,22 @@ SS.TASKASensors.SharedControl.SharedGoal = [0;0;0;0;0;0];
 
 if SS.StartTaskaSens
     try
-%         load('C:\Users\Administrator\Code\Tasks\FeedbackDecode\resources\TaskaSharedControlLinearFits.mat'); % commented out TCH 2/8/21
-%         SS.TASKASensors.SharedControl.Fit = fits;
-         if isfield(SS,'TASKASensors')
+        %         load('C:\Users\Administrator\Code\Tasks\FeedbackDecode\resources\TaskaSharedControlLinearFits.mat'); % commented out TCH 2/8/21
+        %         SS.TASKASensors.SharedControl.Fit = fits;
+        if isfield(SS,'TASKASensors')
             if isfield(SS.TASKASensors,'Obj')
                 if isobject(SS.TASKASensors.Obj)
                     delete(SS.TASKASensors.Obj);
                 end
             end
-         end
+        end
         SS.TASKASensors.Obj = TASKASensors_nrf52; % mt 20210526 new sensors obj
         if SS.TASKASensors.Obj.Ready
             SS.TASKASensors.IRraw(:,end) = median(SS.TASKASensors.Obj.Status.IRSmallBuff,2);
             SS.TASKASensors.baroraw(:,end) = median(SS.TASKASensors.Obj.Status.BAROSmallBuff,2);
-%            SS.TASKASensors.force_est(:,end) = 
-%             SS.TASKASensors.IRraw(:,end) = SS.TASKASensors.Obj.Status.IR;
-%             SS.TASKASensors.baroraw(:,end) = SS.TASKASensors.Obj.Status.BARO;
+            %            SS.TASKASensors.force_est(:,end) =
+            %             SS.TASKASensors.IRraw(:,end) = SS.TASKASensors.Obj.Status.IR;
+            %             SS.TASKASensors.baroraw(:,end) = SS.TASKASensors.Obj.Status.BARO;
             disp('TASKA Sensors connected')
         else
             disp('TASKA Sensors failed to connect. Check arduino connection')
@@ -3296,10 +3287,10 @@ fwrite(SS.DEKAFID,DEKAData,'single');
 %         size(SS.TASKASensors.SharedControl.Ready)
 %         size(SS.TASKASensors.SharedControl.Beta)
 %         ];
-%     
+%
 %     fwrite(SS.TASKAFID,[numel(TASKAHeader);TASKAHeader(:)],'single'); %saving data to TASKA data file (see readTASKAData)
 % end
-% 
+%
 % TASKAData = [
 %     SS.XippTS-SS.RecStart
 %     SS.TASKA.Ready
@@ -3311,7 +3302,7 @@ fwrite(SS.DEKAFID,DEKAData,'single');
 %     SS.TASKASensors.SharedControl.Ready
 %     SS.TASKASensors.SharedControl.Beta
 %     ];
-% 
+%
 % fwrite(SS.TASKAFID,TASKAData,'single');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -3866,7 +3857,7 @@ if ~isempty(SS.AvailNeuralHS)
     if all(SS.SfNeural(1)==SS.SfNeural)
         SS.SfNeural = SS.SfNeural(1);
     end
-end 
+end
 SS.SfEMG = 0.25;
 if ~isempty(SS.AvailEMGHS)
     SS.SfEMG = SS.SfTable(xippmex_1_12('adc2phys',SS.AvailEMGHS));
