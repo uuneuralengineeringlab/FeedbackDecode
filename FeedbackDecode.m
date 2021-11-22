@@ -90,7 +90,7 @@ if SS.VTStruct.Ready; SS.VTStruct.Obj.close; end
 if SS.ARD3.Ready; fclose(SS.ARD3.Obj); delete(SS.ARD3.Obj); end
 if isfield(SS,'PHandFID'); fclose(SS.PHandFID); end
 if SS.DEKA.Ready; lkmex('stop'); clear lkmex; end
-if SS.TASKA.Ready; closeTASKA(SS.TASKA.Obj); delete(SS.TASKA.Obj); end % dk 2018-01-26
+if SS.TASKA.Obj.ready; clear SS.TASKA.Obj; end
 % if SS.TASKASensors.Ready; closeTASKASensors_simple(SS.TASKASensors.Obj); delete(SS.TASKASensors.Obj); end % jag 7/26/18
 if SS.TASKASensors.Obj.Ready;  delete(SS.TASKASensors.Obj); end % ESS 8/18/21
 
@@ -1227,7 +1227,12 @@ if SS.UDPEvnt.BytesAvailable
                 %                     end
                 %                 end
                 if SS.StartTaska
-                    [SS.TASKA.Obj, SS.TASKA.Ready] = openTASKA(); % please don't uncomment without asking TCH first
+                    %                     [SS.TASKA.Obj, SS.TASKA.Ready] = openTASKA(); % please don't uncomment without asking TCH first
+                    try
+                        delete(SS.TASKA.Obj);
+                    catch
+                    end
+                        SS.TASKA.Obj = TASKA_HAND;
                 end
             case 'EnableNIPSpikes'
                 disp('Switching to NIP spike detection')
@@ -2257,7 +2262,7 @@ if SS.ARD4.Ready
 end
 
 % sending output to TASKA hand  dk 2018-01-26
-if SS.TASKA.Ready
+if SS.TASKA.Obj.ready
     try
         %determine motor input
         % DK added to try to get TASKA to move in training 20180504
@@ -2290,7 +2295,8 @@ if SS.TASKA.Ready
         pos(pos<-motorLim) = -motorLim;
         pos(pos>motorLim) = motorLim;   % Limits to prevent motor churning/jitter
         if SS.TASKA.Count >= SS.TASKA.CountMax  % Updating every cycle causes lag
-            updateTASKA(SS.TASKA.Obj,pos',SS.TASKA.RestPositions);
+%             updateTASKA(SS.TASKA.Obj,pos',SS.TASKA.RestPositions);
+            SS.TASKA.Obj.setHandPosition(pos',SS.TASKA.RestPositions);
             SS.TASKA.Count = 0;
             SS.TASKAMotors = pos;
         else
@@ -2316,17 +2322,22 @@ if SS.TASKA.Ready
             
         end
     catch ME
-        SS.TASKA.Ready = 0;
+        SS.TASKA.Obj.ready = 0;
         disp('TASKA serial connection failed at run testing...');
         if(SS.TASKA.reconnectFlag)
             try
                 [SS.TASKA.Obj, SS.TASKA.Ready] = openTASKA(0);
+                try
+                    delete(SS.TASKA.Obj);
+                catch
+                end
+                SS.TASKA.Obj = TASKA_HAND(0);
                 disp('Reconnected!')
                 SS.TASKA.reconnectFlag = 1;
             catch
                 disp('Unable to reconnect!...')
                 SS.TASKA.reconnectFlag = 0;
-                SS.TASKA.Ready = 0;
+%                 SS.TASKA.Ready = 0;
                 if isempty(ME.stack)
                     fprintf('message: %s\r\n',ME.message);
                 else
@@ -2962,25 +2973,32 @@ if SS.StartTaska
         if isfield(SS,'TASKA')
             if isfield(SS.TASKA,'Obj')
                 if isobject(SS.TASKA.Obj)
-                    delete(SS.TASKA.Obj);
+                    clear SS.TASKA.Obj;
                 end
             end
         end
-        [SS.TASKA.Obj, SS.TASKA.Ready] = openTASKA();
-        if SS.TASKA.Ready == 1
-            updateTASKA(SS.TASKA.Obj,zeros(1,6));
+%         [SS.TASKA.Obj, SS.TASKA.Ready] = openTASKA();
+        try
+            delete(SS.TASKA.Obj)
+        catch
+        end
+        SS.TASKA.Obj = TASKA_HAND();
+        if SS.TASKA.Obj.ready == 1
+            SS.TASKA.Obj.setHandPosition(zeros(1,6));
             disp('TASKA connected')
         else
             disp('TASKA failed to connect. Make sure Bluetooth dongle is unobstructed')
-            fclose(SS.TASKA.Obj);
+%             fclose(SS.TASKA.Obj);
             delete(SS.TASKA.Obj);
         end
     catch
         if isfield(SS,'TASKA')
             if isfield(SS.TASKA,'Obj')
                 if isobject(SS.TASKA.Obj)
-                    fclose(SS.TASKA.Obj);
+%                     fclose(SS.TASKA.Obj);
+%                     delete(SS.TASKA.Obj);
                     delete(SS.TASKA.Obj);
+                    clear SS.TASKA.Obj
                 end
             end
         end
@@ -2988,9 +3006,9 @@ if SS.StartTaska
         disp('TASKA initialization failed.')
     end
     SS.TASKA.Count = 0;
-    SS.TASKA.CountMax = 5; % orig value was 2 here; updated on 10/20/20 to increase TASKA comm time before crashing
+    SS.TASKA.CountMax = 2; % orig value was 2 here; updated on 10/20/20 to increase TASKA comm time before crashing
 else % do not attempt connection
-    SS.TASKA.Ready = 0;
+    SS.TASKA.Obj.ready = 0;
 end
 
 % function SS = initTASKASensors(SS) 08182021 ESS trying an updated
@@ -3311,7 +3329,7 @@ function saveTASKA(SS,mode) %ess 08182021 trying new version
 if mode %writing header
     TASKAHeader = [
         size(SS.XippTS-SS.RecStart)
-        size(SS.TASKA.Ready)
+        size(SS.TASKA.Obj.ready)
         size(SS.TASKAMotors)
         size(SS.TASKASensors.IR)
         size(SS.TASKASensors.baro)
@@ -3329,7 +3347,7 @@ end
 
 TASKAData = [
     SS.XippTS-SS.RecStart
-    SS.TASKA.Ready
+    SS.TASKA.Obj.ready
     SS.TASKAMotors(:)
     SS.TASKASensors.IR(:)
     SS.TASKASensors.baro(:)
