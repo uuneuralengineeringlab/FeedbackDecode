@@ -32,7 +32,7 @@ fprintf('finished timer\n');
 function mainLoop(t,~)
 try
     SS = t.UserData;
-    SS.MCalcTic = double(xippmex_1_12('time'));
+    SS.MCalcTic = double(xippmex_1_14('time'));
     SS = acqEvents(SS);
     if SS.Stop
         stop(t);
@@ -42,14 +42,13 @@ try
     SS = acqCont(SS);
     SS = acqTraining(SS);
     SS = acqBaseline(SS);
-    
     SS = runTesting(SS); %SS.XHat
     SS = cogLoad(SS);
     SS = sendStim(SS);
     SS = saveContStim(SS);
     SS = saveTask(SS);
     SS = savePHand(SS);
-    SS.MCalcTime = (double(xippmex_1_12('time'))-SS.MCalcTic)/30000; %calculation time within loop
+    SS.MCalcTime = (double(xippmex_1_14('time'))-SS.MCalcTic)/30000; %calculation time within loop
     SS.MTotalTime = t.InstantPeriod; %overall loop time
     SS.LoopCnt = t.TasksExecuted;
     t.UserData = SS;
@@ -63,28 +62,28 @@ end
 
 function closeSystem(t,~)
 SS = t.UserData;
-SS.RecEnd = double(xippmex_1_12('time')); %smw - get end NIP time for Synching purposes
+SS.RecEnd = double(xippmex_1_14('time')); %smw - get end NIP time for Synching purposes
 SS = orderfields(SS);
 assignin('base','SS',SS)
-xippmex_1_12('stim','enable',0); pause(1);
+xippmex_1_14('stim','enable',0); pause(0.1);
 try
-    %     xippmex_1_12('trial',SS.XippOpers,'stopped'); pause(1);
-    xippmex_1_12('trial','stopped'); pause(1);
+    %     xippmex_1_14('trial',SS.XippOpers,'stopped'); pause(0.1);
+    xippmex_1_14('trial','stopped'); pause(0.1);
 catch
     disp('xippmex call to stop recording crashed...')
 end
-xippmex_1_12('close'); clear('xippmex_1_12'); mj_close;
+xippmex_1_14('close'); clear('xippmex_1_14'); mj_close;
 SS.SSFile = fullfile(SS.FullDataFolder,['\SSStruct_',SS.DataFolder,'.mat']);
 save(SS.SSFile,'SS');
-fwrite(SS.UDPEvnt,'MatlabReady'); %Tell LV that matlab has shut down
-fwrite(SS.UDPContAux,[zeros(6,1);0;SS.BakeoffDirect],'single')
-fwrite(SS.UDPEvntAux,'Stop:'); %tell MLAux to stop
-fclose(SS.UDPEvnt); fclose(SS.UDPEvntAux); fclose(SS.UDPCont); fclose(SS.UDPContAux); fclose(SS.TaskFID); fclose(SS.ContStimFID); fclose(SS.LogFID);
-delete(SS.UDPEvnt); delete(SS.UDPEvntAux); delete(SS.UDPCont); delete(SS.UDPContAux);
-if isfield(SS,'UDPNIP')
-    fclose(SS.UDPNIP);
-    delete(SS.UDPNIP);
-end
+% fwrite(SS.UDPEvnt,'MatlabReady'); %Tell LV that matlab has shut down
+% fwrite(SS.UDPContAux,[zeros(6,1);0;SS.BakeoffDirect],'single')
+% fwrite(SS.UDPEvntAux,'Stop:'); %tell MLAux to stop
+% fclose(SS.UDPEvnt); fclose(SS.UDPEvntAux); fclose(SS.UDPCont); fclose(SS.UDPContAux); fclose(SS.TaskFID); fclose(SS.ContStimFID); fclose(SS.LogFID);
+% delete(SS.UDPEvnt); delete(SS.UDPEvntAux); delete(SS.UDPCont); delete(SS.UDPContAux);
+% if isfield(SS,'UDPNIP')
+%     fclose(SS.UDPNIP);
+%     delete(SS.UDPNIP);
+% end
 if SS.ARD1.Ready; SS.ARD1.Ready = ctrlRBArduino; end
 if SS.VTStruct.Ready; SS.VTStruct.Obj.close; end
 if SS.ARD3.Ready; fclose(SS.ARD3.Obj); delete(SS.ARD3.Obj); end
@@ -112,6 +111,21 @@ end
 fclose(SS.DEKAFID);
 fclose(SS.TASKAFID);
 fclose(SS.CogLoadFID);
+
+fclose(SS.TaskFID); 
+fclose(SS.ContStimFID); 
+fclose(SS.LogFID);
+
+fwrite(SS.UDPEvnt,'MatlabReady'); %Tell LV that matlab has shut down
+fwrite(SS.UDPContAux,[zeros(6,1);0;SS.BakeoffDirect],'single')
+fwrite(SS.UDPEvntAux,'Stop:'); %tell MLAux to stop
+fclose(SS.UDPEvnt); fclose(SS.UDPEvntAux); fclose(SS.UDPCont); fclose(SS.UDPContAux); 
+delete(SS.UDPEvnt); delete(SS.UDPEvntAux); delete(SS.UDPCont); delete(SS.UDPContAux);
+if isfield(SS,'UDPNIP')
+    fclose(SS.UDPNIP);
+    delete(SS.UDPNIP);
+end
+
 % delete(t);
 delete(instrfindall);
 close all; fclose all;
@@ -123,7 +137,7 @@ close all; fclose all;
 function SS = initSystem(LabviewIP,SS)
 
 delete(instrfindall); delete(timerfindall);
-xippmex_1_12('close'); clear('xippmex_1_12'); mj_close;
+xippmex_1_14('close'); clear('xippmex_1_14'); mj_close;
 
 if strcmp(LabviewIP,'127.0.0.1')
     SS.LocalIP = '127.0.0.2';
@@ -267,7 +281,7 @@ end
 % Initializing loop timing
 SS.BaseLoopTime=0.033; %smw - change to 0.025 at some point?
 % SS.BaseLoopTime=0.02; %dk TASKA testing
-SS.MCalcTic = double(xippmex_1_12('time'));
+SS.MCalcTic = double(xippmex_1_14('time'));
 SS.MCalcTime = 0;
 SS.MTotalTime = 0;
 SS.Stop = 0;
@@ -437,12 +451,12 @@ SS.CogLoadFID = fopen(SS.CogLoadFile,'w+');
 % Start recording and get time
 pause(1)
 try
-    SS.XippTS = double(xippmex_1_12('time'));
+    SS.XippTS = double(xippmex_1_14('time'));
     SS.RecStart = SS.XippTS; %get time when recording started (skipped if xippmex command fails)
     if SS.StartXippRec %only automatically start recording if command sent from LV
-        %         xippmex_1_12('trial',SS.XippOpers,'recording',fullfile(SS.FullDataFolder,[SS.DataFolder,'-']));
-        %         xippmex_1_12('trial','recording',fullfile(SS.FullDataFolder,[SS.DataFolder,'-']));
-        xippmex_1_12('trial','recording',fullfile(SS.FullDataFolder, SS.DataFolder));
+        %         xippmex_1_14('trial',SS.XippOpers,'recording',fullfile(SS.FullDataFolder,[SS.DataFolder,'-']));
+        %         xippmex_1_14('trial','recording',fullfile(SS.FullDataFolder,[SS.DataFolder,'-']));
+        xippmex_1_14('trial','recording',fullfile(SS.FullDataFolder, SS.DataFolder));
         RecStart = SS.RecStart;
         save(fullfile(SS.FullDataFolder,['\RecStart_',SS.DataFolder,'.mat']),'RecStart')
     end
@@ -472,19 +486,19 @@ function SS = acqData(SS)
 % Getting neural data from xippmex
 SS.DNeural = zeros(SS.NumNeuralIdxs,SS.DLNeuralMax);
 if ~isempty(SS.AvailNeural)
-    [DNeural,DNeuralTS] = xippmex_1_12('cont',SS.AvailNeural,SS.DLNeuralMaxMS,'raw'); SS.CurrTS = double(DNeuralTS); %slow (1.08)
+    [DNeural,DNeuralTS] = xippmex_1_14('cont',SS.AvailNeural,SS.DLNeuralMaxMS,'raw'); SS.CurrTS = double(DNeuralTS); %slow (1.08)
     if ~isempty(DNeural)
         SS.DNeural(SS.AvailNeuralIdx,:) = DNeural; %slow (0.23)
     end
 else
-    SS.CurrTS = double(xippmex_1_12('time'))-SS.DLNeuralMax;
+    SS.CurrTS = double(xippmex_1_14('time'))-SS.DLNeuralMax;
 end
 
 SS.ApCell = cell(SS.NumNeuralIdxs,1); SS.ApWfCell = repmat({cell(1,[])},SS.NumNeuralIdxs,1); %slow (0.13)
 SS.StCell = cell(SS.NumNeuralIdxs,1); SS.StWfCell = repmat({cell(1,[])},SS.NumNeuralIdxs,1);
 % if ~isempty(SS.AvailNeural)
-%     [~,ApCell,ApWfCell] = xippmex_1_12('spike',SS.AvailNeural,0); %slow (1.78)
-%     [~,StCell,StWfCell] = xippmex_1_12('spike',SS.AvailNeural,1); %slow (1.57)
+%     [~,ApCell,ApWfCell] = xippmex_1_14('spike',SS.AvailNeural,0); %slow (1.78)
+%     [~,StCell,StWfCell] = xippmex_1_14('spike',SS.AvailNeural,1); %slow (1.57)
 %     SS.ApCell(SS.AvailNeuralIdx) = ApCell;
 %     SS.ApWfCell(SS.AvailNeuralIdx) = ApWfCell;
 %     SS.StCell(SS.AvailNeuralIdx) = StCell;
@@ -494,7 +508,7 @@ SS.StCell = cell(SS.NumNeuralIdxs,1); SS.StWfCell = repmat({cell(1,[])},SS.NumNe
 % Getting emg data from xippmex
 SS.DEMG = zeros(length(SS.AvailEMG),SS.DLNeuralMaxMS);
 if ~isempty(SS.AvailEMG)
-    DEMG = xippmex_1_12('cont',SS.AvailEMG,SS.DLNeuralMaxMS,'lfp',SS.CurrTS);
+    DEMG = xippmex_1_14('cont',SS.AvailEMG,SS.DLNeuralMaxMS,'lfp',SS.CurrTS);
     if ~isempty(DEMG)
         SS.DEMG(SS.AvailEMGIdx,1:size(DEMG,2)) = DEMG;
         if strcmp(SS.MapType.EMG,'active')
@@ -506,10 +520,10 @@ if ~isempty(SS.AvailEMG)
 end
 
 % Stopping stim if big red button is pressed
-[~,SS.DigIO_TS,SS.DigEvents] = xippmex_1_12('digin');
+[~,SS.DigIO_TS,SS.DigEvents] = xippmex_1_14('digin');
 if ~isempty(SS.DigEvents)
     if any([SS.DigEvents.reason]==4) %sma2 -- digital I/O input 2
-        xippmex_1_12('stim','enable',0);
+        xippmex_1_14('stim','enable',0);
         SS.StimMode = 'Off';
         fwrite(SS.UDPEvnt,'StopStim:');
         disp('Stopping Stim...')
@@ -980,7 +994,7 @@ if SS.UDPEvnt.BytesAvailable
                 if SS.EEGTrigger && (strcmp(SS.KinSrc, 'Decode'))
                     % send stop trigger
                     disp('Stop EEG Trigger')
-                    xippmex_1_12('digout',5,targ2EEGEvent(SS.TargRad, SS.T, 'TargOff'))
+                    xippmex_1_14('digout',5,targ2EEGEvent(SS.TargRad, SS.T, 'TargOff'))
                 end
                 %                 if ~SS.AcqTraining && strcmp(SS.KinSrc,'Decode')
                 %                     r = rand;
@@ -1089,19 +1103,19 @@ if SS.UDPEvnt.BytesAvailable
             case 'UpdateStim' %happens when value change in ParamsTable, button selection
                 disp('Updating stim...')
             case 'ClearStim' %happens when ParamsTable is cleared
-                %                 xippmex_1_12('stim','enable',0);
+                %                 xippmex_1_14('stim','enable',0);
                 disp('Clearing stim...')
             case 'ChangeStimMode'
                 %                 switch SS.StimMode % MP commented 20210608 - causes issue
                 %                     case 'Off'
-                %                         xippmex_1_12('stim','enable',0);
+                %                         xippmex_1_14('stim','enable',0);
                 %                 end
                 disp('Changing stim mode...')
             case 'ManualStim'
                 if SS.ManualStim
                     disp('Starting manual stim...')
                 else
-                    %                     xippmex_1_12('stim','enable',0);
+                    %                     xippmex_1_14('stim','enable',0);
                     disp('Stopping manual stim...')
                 end
             case 'ChangeStimStep'
@@ -1109,7 +1123,7 @@ if SS.UDPEvnt.BytesAvailable
                     StimIdx = SS.StimStepSize(any(SS.AvailStimHS(k)==SS.StimStepSizeHS));
                     if ~isempty(StimIdx)
                         if StimIdx>=1 && StimIdx<=6
-                            xippmex_1_12('stim','res',SS.AvailStimHS(k),StimIdx)
+                            xippmex_1_14('stim','res',SS.AvailStimHS(k),StimIdx)
                         end
                     end
                 end
@@ -1329,7 +1343,7 @@ if SS.UDPEvnt.BytesAvailable
                 if SS.EEGTrigger && (strcmp(SS.KinSrc, 'Decode')) % MDP 20190813
                     % send trigger
                     disp('Send EEG Trigger')
-                    xippmex_1_12('digout',5,targ2EEGEvent(SS.TargRad, SS.T, 'TargOn'))
+                    xippmex_1_14('digout',5,targ2EEGEvent(SS.TargRad, SS.T, 'TargOn'))
                 end
                 if SS.SecondaryTask
                     if ~SS.CogLoadStimOn
@@ -1641,8 +1655,7 @@ if SS.UDPCont.BytesAvailable
     end
     
     if(SS.LEAP.Ready)
-        [SS.LEAP.Kinematics,SS.LEAP.Connected,SS.LEAP.IsRight,SS.LEAP.Kinematics2,SS.LEAP.Connected2,SS.LEAP.IsRight2, SS.LEAP.Frame] = sampleLeapMotion();
-        %         disp(SS.LEAP.Kinematics(1))
+        [SS.LEAP.Kinematics,SS.LEAP.Connected,SS.LEAP.IsRight,SS.LEAP.Kinematics2,SS.LEAP.Connected2,SS.LEAP.IsRight2, SS.LEAP.Frame] = sampleLeapMotion(); % AEN
     end
     
     % Checking VREID
@@ -1658,7 +1671,7 @@ if SS.UDPCont.BytesAvailable
     %      disp(num2str(SS.X)); %smw
     
     if ~isempty(SS.StimChan) && ismember(SS.StimChan(1), SS.AvailStimList)
-        [~,~,SS.StimWfCell] = xippmex_1_12('spike',SS.StimChan(1),1);
+        [~,~,SS.StimWfCell] = xippmex_1_14('spike',SS.StimChan(1),1);
         if ~isempty(SS.StimWfCell{1})
             %             SS.StimWf = SS.StimWfCell{1}{1}(:);
             SS.StimWf = SS.StimWfCell{1}(1,:)';
@@ -2326,7 +2339,7 @@ if SS.TASKA.Obj.ready
         disp('TASKA serial connection failed at run testing...');
         if(SS.TASKA.reconnectFlag)
             try
-                [SS.TASKA.Obj, SS.TASKA.Ready] = openTASKA(0);
+%                 [SS.TASKA.Obj, SS.TASKA.Ready] = openTASKA(0);
                 try
                     delete(SS.TASKA.Obj);
                 catch
@@ -2467,8 +2480,13 @@ if ~isempty(SS.StimChan)
     
     SS.StimSeq = repmat(SS.StimCmd,1,numel(SS.StimChan));
     SS.StimIdx = false(1,numel(SS.StimChan));
-    SS.CurrTime = xippmex_1_12('time');
+    SS.CurrTime = xippmex_1_14('time');
+    charge = 0;
+    maxElectrodes = 12;
     for k=1:length(SS.StimChan)
+        if k > maxElectrodes
+            break;
+        end
         switch SS.StimMode %Off, Manual, MSMS, VRE
             case 'MSMS'
                 try
@@ -2535,7 +2553,7 @@ if ~isempty(SS.StimChan)
         end
         CSF(CSF<0) = 0;
         CSF(CSF>0 && CSF<5) = 5; %constraint to prevent low frequencies which have a slow ramp up time
-        CSF(CSF>500) = 500;
+        CSF(CSF>300) = 300; 
         CSF(CSF==0) = SS.BFreq; %baseline frequency
         StimSteps(StimSteps<0) = 0;
         StimSteps(StimSteps>100) = 100;
@@ -2560,15 +2578,23 @@ if ~isempty(SS.StimChan)
                 SS.StimSeq(k).seq(3).length = floor(SS.StimDur(k)*30);
                 SS.StimSeq(k).seq(3).ampl = StimSteps;
                 SS.NextPulse(SS.StimChan(k)) = SS.CurrTime + NextPulseDiff + floor(30000/CSF); %The NIP time (in number of 33.333 us cycles since boot-up) at which next stim pulse should be delivered (not the current,but the next)
-                SS.StimIdx(k) = true;
-            end
-            
-        end
-    end
+                
+                %Adding FDA limits (144nC)
+                newCharge = 0.2*SS.ContStimAmp(k);
+                if (charge + newCharge < 144)
+                    SS.StimIdx(k) = true;
+                    charge = charge + newCharge;
+                else
+                    maxElectrodes = maxElectrodes + 1;
+                    fprintf('Over 144 nC! Charge is %0.0f\n', charge);
+                end
+            end %NextPulseDiff
+        end %CSF>0
+    end %for-loop StimChan
     if any(SS.StimIdx)
         if all(ismember(SS.StimChan, SS.AvailStimList)) % check especially for VTStim
             try
-                xippmex_1_12('stimseq',SS.StimSeq(SS.StimIdx));
+                xippmex_1_14('stimseq',SS.StimSeq(SS.StimIdx));
             catch ME
                 if isempty(ME.stack)
                     fprintf('message: %s\r\n',ME.message);
@@ -2876,9 +2902,9 @@ for k=1:length(SS.AvailStimHS)
     StimIdx = SS.StimStepSize(any(SS.AvailStimHS(k)==SS.StimStepSizeHS));
     if ~isempty(StimIdx)
         if StimIdx>=1 && StimIdx<=6
-            xippmex_1_12('stim','enable',0);
-            xippmex_1_12('stim','res',SS.AvailStimHS(k),StimIdx)
-            xippmex_1_12('stim','enable',1);
+            xippmex_1_14('stim','enable',0);
+            xippmex_1_14('stim','res',SS.AvailStimHS(k),StimIdx)
+            xippmex_1_14('stim','enable',1);
             
         end
     end
@@ -2893,12 +2919,12 @@ SS.StimCmd.seq(2) = struct('length',3,'ampl',0,'pol',0,'fs',0,'enable',0,'delay'
 SS.StimCmd.seq(3) = struct('length',6,'ampl',0,'pol',1,'fs',0,'enable',1,'delay',0,'ampSelect',1); %second phase of biphasic pulse
 
 SS.NextPulse = zeros(SS.NumNeuralChans,1); %holds next pulse time for each stim channel
-SS.CurrTime = xippmex_1_12('time');
+SS.CurrTime = xippmex_1_14('time');
 
 SS.proprioceptVsCut = 'both';%default to both proprioceptive and cutaneous percepts
 SS.cutaneousAlgorithm = 'curveFit';%default algorithm
 SS.proprioceptiveAlgorithm = 'curveFit';%default algorithm
-SS.SA1Thresholds = 0.2;%default of 0.2 will be applied to all contact sensors. This is overwritten for the luke hand during the encode function
+SS.SA1Thresholds = 0.2;%default of 0.2 will be applied to all contact sensors. This is overwritten for the luke hand during the encode function #TNT 06/13/22 why is this all here?
 SS.RA1Thresholds = 0.2;%default of 0.2 will be applied to all contact sensors. This is overwritten for the luke hand during the encode function
 SS.RA2Thresholds = 0;%CURRENTLY NOT IMPLEMENTED
 SS.MS1Thresholds = 1;%default of 1 will be applied to all joint velocity sensors, This is overwritten for the luke hand during the encode function
@@ -3002,7 +3028,7 @@ if SS.StartTaska
                 end
             end
         end
-        SS.TASKA.Ready = 0;
+        SS.TASKA.Obj.ready = 0;
         disp('TASKA initialization failed.')
     end
     SS.TASKA.Count = 0;
@@ -3194,11 +3220,11 @@ if ~isempty(SS.DigIO_TS)
                 end
                 fprintf(SS.CogLoadFID,'ButtonPressRawNIP,NIPTime=%0.0f,TargRad=%0.2f,ParallelID=%0.0f\r\n', ...
                     [SS.DigIO_TS(i) - SS.RecStart, SS.TargRad, double(SS.DigEvents(i).parallel)]);
-                xippmex_1_12('digout',[1, 5],[0, targ2EEGEvent(SS.TargRad, SS.T, 'ButtonPress')]);
+                xippmex_1_14('digout',[1, 5],[0, targ2EEGEvent(SS.TargRad, SS.T, 'ButtonPress')]);
             case 'ButtonReleaseRawNIP'
                 fprintf(SS.CogLoadFID,'ButtonReleaseRawNIP,NIPTime=%0.0f,TargRad=%0.2f,ParallelID=%0.0f\r\n', ...
                     [SS.DigIO_TS(i) - SS.RecStart, SS.TargRad, double(SS.DigEvents(i).parallel)]);
-                xippmex_1_12('digout',[1, 5],[0, targ2EEGEvent(SS.TargRad, SS.T, 'ButtonRelease')]);
+                xippmex_1_14('digout',[1, 5],[0, targ2EEGEvent(SS.TargRad, SS.T, 'ButtonRelease')]);
             case 'Unknown'
                 fprintf(SS.CogLoadFID,'UnknownEvent,NIPTime=%0.0f,TargRad=%0.2f,ParallelID=%0.0f\r\n', ...
                     [SS.DigIO_TS(i) - SS.RecStart, SS.TargRad, double(SS.DigEvents(i).parallel)]);
@@ -3213,7 +3239,7 @@ if SS.TargOn % if there is an active target
             if SS.CurrTS > SS.CogLoadNextStimTS
                 % start next stimulus
                 SS.CogLoadStimOn = 1;
-                xippmex_1_12('digout',[1, 5],[1, targ2EEGEvent(SS.TargRad, SS.T, 'BuzzOn')]);
+                xippmex_1_14('digout',[1, 5],[1, targ2EEGEvent(SS.TargRad, SS.T, 'BuzzOn')]);
                 SS.CogLoadNextStimOffTS = SS.CurrTS + SS.SecondaryTaskStimDur*30; % *30 for NIPTime
                 SS.CogLoadNextStimTS = SS.CurrTS + ...
                     30*(SS.SecondaryTaskMinBetweenStim + rand*SS.SecondaryTaskVarBetweenStim);
@@ -3224,7 +3250,7 @@ if SS.TargOn % if there is an active target
                 % turn off stimulus
                 SS.CogLoadButtonPress = 0;
                 SS.CogLoadStimOn = 0;
-                xippmex_1_12('digout',[1,5],[0,targ2EEGEvent(SS.TargRad, SS.T, 'BuzzOff')]);
+                xippmex_1_14('digout',[1,5],[0,targ2EEGEvent(SS.TargRad, SS.T, 'BuzzOff')]);
             end
         end
     end
@@ -3234,7 +3260,7 @@ elseif SS.CogLoadStimOn % if target not on but buzzer is
         % turn off stimulus
         SS.CogLoadButtonPress = 0;
         SS.CogLoadStimOn = 0;
-        xippmex_1_12('digout',[1,5],[0,targ2EEGEvent(SS.TargRad, SS.T, 'BuzzOff')]);
+        xippmex_1_14('digout',[1,5],[0,targ2EEGEvent(SS.TargRad, SS.T, 'BuzzOff')]);
     end
 end
 
@@ -3800,16 +3826,13 @@ function SS = initNIP(SS)
 
 while 1
     try
-        if xippmex_1_12('tcp')  %% MB 20200302 original is just xippmex_1_12 for UDP
-        else
-            xippmex_1_12('close'); clear('xippmex_1_12');
-            disp('Unable to initialize TCP xippmex');
-            xippmex_1_12(); pause(1);
-            disp('using UDP mode');
-        end
-        %             SS.XippOpers = xippmex_1_12('opers'); pause(0.1);
-        SS.AvailChanList = xippmex_1_12('elec','all'); pause(1);
-        SS.AvailStimList = xippmex_1_12('elec','stim'); pause(1);
+        xippmex_1_14(); pause(0.1);
+        disp('using UDP mode');
+        
+        xippmex_1_14('stim','enable',0); pause(0.1);
+        
+        SS.AvailChanList = xippmex_1_14('elec','all'); pause(0.1);
+        SS.AvailStimList = xippmex_1_14('elec','stim'); pause(0.1);
         SS.HSChans = [1,33,65,129,161,193,257,289,321]; %1st channel of each 32ch headstage
         SS.AvailNeural = SS.AvailChanList(SS.AvailChanList<=224); SS.AvailNeuralHS = intersect(SS.HSChans,SS.AvailNeural);
         %             SS.AvailEMG = SS.AvailChanList(SS.AvailChanList>=257 & SS.AvailChanList<=288); SS.AvailEMGHS = intersect(SS.HSChans,SS.AvailEMG);
@@ -3820,7 +3843,7 @@ while 1
         break;
     catch
         disp('Unable to initialize xippmex');
-        xippmex_1_12('close'); clear('xippmex_1_12');
+        xippmex_1_14('close'); clear('xippmex_1_14');
     end
     
 end
@@ -3828,62 +3851,72 @@ end
 % Enabling appropriate neural channels
 if ~isempty(SS.AvailNeural)
     disp('Initializing neural channels')
-    xippmex_1_12('signal',SS.AvailNeuralHS,'raw',ones(length(SS.AvailNeuralHS),1)); pause(1); %only 1st headstage channels need to be sent
-    xippmex_1_12('signal',SS.AvailNeuralHS,'lfp',zeros(length(SS.AvailNeuralHS),1)); pause(1);
-    xippmex_1_12('signal',SS.AvailNeural,'spk',zeros(length(SS.AvailNeural),1)); pause(1); %all available channels need to be sent to xippmex
+    try
+        xippmex_1_14('signal',SS.AvailNeural,'spk',zeros(1,length(SS.AvailNeural))); pause(0.1); %all available channels need to be sent to xippmex
+    catch
+        disp('Failed to initialize spk data stream. Enable these in Trellis before continuing!!')
+    end
     for k=1:length(SS.AvailNeuralHS)
-        xippmex_1_12('filter','set',SS.AvailNeuralHS(k),'spike',3); pause(1);
-        xippmex_1_12('fastsettle','stim',SS.AvailNeuralHS(k),1,1); %set to same front port
+        xippmex_1_14('signal',SS.AvailNeuralHS(k),'raw',1); pause(0.1); %only 1st headstage channels need to be sent
+        xippmex_1_14('signal',SS.AvailNeuralHS(k),'lfp',0); pause(0.1);
+        xippmex_1_14('filter','set',SS.AvailNeuralHS(k),'spike',3); pause(0.1);
+        xippmex_1_14('fastsettle','stim',SS.AvailNeuralHS(k),1,1); %set to same front port
     end
 end
 
 % Enabling appropriate emg channels
 if ~isempty(SS.AvailEMG)
     disp('Initializing EMG channels')
-    xippmex_1_12('signal',SS.AvailEMGHS,'raw',zeros(length(SS.AvailEMGHS),1)); pause(1);
-    xippmex_1_12('signal',SS.AvailEMGHS,'lfp',ones(length(SS.AvailEMGHS),1)); pause(1);
-    xippmex_1_12('signal',SS.AvailEMG,'spk',zeros(length(SS.AvailEMG),1)); pause(1);
+    xippmex_1_14('signal',SS.AvailEMG,'spk',zeros(1,length(SS.AvailEMG))); pause(0.1);
     for k=1:length(SS.AvailEMGHS)
-        xippmex_1_12('filter','set',SS.AvailEMGHS(k),'lfp',4); pause(1); %bandpass "EMG" 15-350 to start
-        xippmex_1_12('filter','set',SS.AvailEMGHS(k),'lfp notch',3); pause(1); %notch to start
+        xippmex_1_14('signal',SS.AvailEMGHS(k),'raw',0); pause(0.1);
+        xippmex_1_14('signal',SS.AvailEMGHS(k),'lfp',1); pause(0.1);
+        xippmex_1_14('filter','set',SS.AvailEMGHS(k),'lfp',4); pause(0.1); %bandpass "EMG" 15-350 to start
+        xippmex_1_14('filter','set',SS.AvailEMGHS(k),'lfp notch',3); pause(0.1); %notch to start
     end
 end
 
 % Enabling appropriate stim channels
 if ~isempty(SS.AvailStim)
     disp('Initializing stim')
-    xippmex_1_12('signal',SS.AvailStim,'stim',ones(length(SS.AvailStim),1)); pause(1);
+    try
+        xippmex_1_14('signal',SS.AvailStim,'stim',ones(1,length(SS.AvailStim))); pause(0.1);
+    catch
+        disp('Failed to initialize stim data stream. Enable these in Trellis before continuing!!')
+    end
 end
 
 % Enabling appropriate analog channels
 if ~isempty(SS.AvailAnalog)
     disp('Initializing analog channels')
-    xippmex_1_12('signal',SS.AvailAnalog,'1ksps',ones(length(SS.AvailAnalog),1)); pause(1);
-    xippmex_1_12('signal',SS.AvailAnalog,'30ksps',zeros(length(SS.AvailAnalog),1)); pause(1);
+    xippmex_1_14('signal',SS.AvailAnalog,'1ksps',ones(1,length(SS.AvailAnalog))); pause(0.1);
+%     xippmex_1_14('signal',SS.AvailAnalog,'30ksps',zeros(length(SS.AvailAnalog),1)); pause(0.1);
 end
 
 % Disabling unwanted emg channels
 % if ~isempty(SS.DisableEMG)
-%     xippmex_1_12('signal',SS.DisableEMGHS,'raw',zeros(length(SS.DisableEMGHS),1)); pause(0.1);
-%     xippmex_1_12('signal',SS.DisableEMGHS,'lfp',zeros(length(SS.DisableEMGHS),1)); pause(0.1);
-%     xippmex_1_12('signal',SS.DisableEMG,'spk',zeros(length(SS.DisableEMG),1)); pause(0.1);
+%     xippmex_1_14('signal',SS.DisableEMGHS,'raw',zeros(length(SS.DisableEMGHS),1)); pause(0.1);
+%     xippmex_1_14('signal',SS.DisableEMGHS,'lfp',zeros(length(SS.DisableEMGHS),1)); pause(0.1);
+%     xippmex_1_14('signal',SS.DisableEMG,'spk',zeros(length(SS.DisableEMG),1)); pause(0.1);
 % end
 
-SS.SfTable = [0.125,0.25,0.5]; %uV/bit returned from xippmex call: output = xippmex_1_12('adc2phys', 1);
+SS.SfTable = [0.125,0.25,0.5]; %uV/bit returned from xippmex call: output = xippmex_1_14('adc2phys', 1);
 SS.SfNeural = 0.25;
 if ~isempty(SS.AvailNeuralHS)
-    SS.SfNeural = SS.SfTable(xippmex_1_12('adc2phys',SS.AvailNeuralHS));
+    SS.SfNeural = SS.SfTable(xippmex_1_14('adc2phys',SS.AvailNeuralHS));
     if all(SS.SfNeural(1)==SS.SfNeural)
         SS.SfNeural = SS.SfNeural(1);
     end
 end
 SS.SfEMG = 0.25;
 if ~isempty(SS.AvailEMGHS)
-    SS.SfEMG = SS.SfTable(xippmex_1_12('adc2phys',SS.AvailEMGHS));
+    SS.SfEMG = SS.SfTable(xippmex_1_14('adc2phys',SS.AvailEMGHS));
     if all(SS.SfEMG(1)==SS.SfEMG)
         SS.SfEMG = SS.SfEMG(1);
     end
 end
+
+xippmex_1_14('stim','enable',1); pause(0.1);
 
 
 
