@@ -37,6 +37,8 @@ ReceptorType = StimCell{2}; %to determine encoding algorithm
 
 Freq = 0;   %base frequency
 Amp = 0;    %base amplitude
+
+
 %% Intensity Encoding
 if any(IdxContact)          %if electrode is tied to a contact sensor...
     c0 = DEKASensors(IdxContact); c1 = PastDEKASensors(IdxContact,1); c2 = PastDEKASensors(IdxContact,2); c3 = PastDEKASensors(IdxContact,3);  c4 = PastDEKASensors(IdxContact,4);  c5 = PastDEKASensors(IdxContact,5);
