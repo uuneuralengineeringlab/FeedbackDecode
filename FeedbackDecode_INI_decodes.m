@@ -252,6 +252,14 @@ SS.IMU.Calib = 0;
 SS.IMU.WaistAngles = [0,0,0];
 SS.IMU.ShoulderAngles = [0,0,0];
 
+% Initialize Taska buffer
+SS.TaskaBuffer = zeros(1,15,14);
+SS.TaskaEncodeIndices = [7,8];
+SS.INIoutputbuffer = zeros(14,1);
+encoderType = 'taskaThumb';
+modelfile = 'taska_thumb.onnx';
+SS.TaskaEncodeParams = importONNXFunction(modelfile, encoderType);
+
 % Initialize low-cost Nathan Taska wrist TNT 4/7/21
 try
     [SS.LCWrist, SS.LCWrist_LastKin ] = initiateTaskaWrist();
@@ -693,7 +701,7 @@ if(SS.TASKASensors.Obj.Ready)
     SS.TASKASensors.baroraw(:,end) = median(SS.TASKASensors.Obj.Status.BAROSmallBuff,2);
     
     %subtract baseline from raw IR
-    SS.TASKASensors.IR = SS.TASKASensors.IRraw(:,end) - SS.TASKASensors.BL.IR;
+    SS.TASKASensors.IR = SS.TASKASensors.IRraw(:,end) - SS.TASKASensors.BL.IR*1;
     
     %    if(SS.TASKASensors.ThumbKF.Enabled)
     %        % subtract baseline for pressure sensors
@@ -712,26 +720,26 @@ if(SS.TASKASensors.Obj.Ready)
     %        SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
     %    else
     % set up adaptive baseline for pressure sensor on each digit
-    if any(SS.TASKASensors.IR > SS.TASKASensors.SharedControl.IRMin) % check to see if any digits have high IR
-        update_idx = SS.TASKASensors.IR <= SS.TASKASensors.SharedControl.IRMin; % only update those with low IR
-    else
-        % if none have high IR, just update pressure baseline to be previous baro value
-        update_idx = true(4,1);
-    end
-    SS.TASKASensors.BL.baro(update_idx) = SS.TASKASensors.baroraw(update_idx,end-1);
+    %     if any(SS.TASKASensors.IR > SS.TASKASensors.SharedControl.IRMin) % check to see if any digits have high IR
+    %         update_idx = SS.TASKASensors.IR <= SS.TASKASensors.SharedControl.IRMin; % only update those with low IR
+    %     else
+    %         % if none have high IR, just update pressure baseline to be previous baro value
+    %         update_idx = true(4,1);
+    %     end
+    %     SS.TASKASensors.BL.baro(update_idx) = SS.TASKASensors.baroraw(update_idx,end-1);
     %     disp(SS.TASKASensors.BL.baro(4));
     
-    SS.TASKASensors.baro = SS.TASKASensors.baroraw(:,end) - SS.TASKASensors.BL.baro;
+    SS.TASKASensors.baro = SS.TASKASensors.baroraw(:,end) - SS.TASKASensors.BL.baro*1;
     
     % ensure no values below zero
     SS.TASKASensors.IR(SS.TASKASensors.IR < 0) = 0;
-    %         SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
+    SS.TASKASensors.baro(SS.TASKASensors.baro < 0) = 0;
     
     % run high-pass filter for pressure data
     %        [SS.TASKASensors.press_filt, SS.TASKASensors.diff_baro] = mtHPFilt(SS.TASKASensors);
     %        SS.TASKASensors.prevbaro = SS.TASKASensors.baro; % save current baro for next loop
-    SS.TASKASensors.press_filt = SS.TASKASensors.baro;
-    SS.TASKASensors.baro = max(SS.TASKASensors.press_filt, 0);
+    %     SS.TASKASensors.press_filt = SS.TASKASensors.baro;
+    %     SS.TASKASensors.baro = max(SS.TASKASensors.press_filt, 0);
 end
 
 
@@ -993,18 +1001,13 @@ if SS.UDPEvnt.BytesAvailable
                 %                     end
                 %                     mj_set_mocap(SS.VREInfo.mocap);
                 %                 end
-            case {'DisableHideSpheres'}
-                SS.LeapTrain = 0;
+            case {'EnableHideSpheres','DisableHideSpheres'}
                 %                 if SS.VRETargetsEnabled
                 %                     for k = 1:length(SS.VRETargetIdx) % Turn off all targs
                 %                         mj_set_rgba('geom',SS.VRETargetIdx(k),[0 0 0 0]);
                 %                     end
                 %                 end
                 %                 disp('Hide or unhide Spheres...')
-                disp('DisabledHideSpheres')
-            case {'EnableHideSpheres'}
-                SS.LeapTrain = 1;
-                disp('enabledHideSpheres')
             case 'Failure'
                 SS.TargOn = 0;
             case 'LinkDOF' % SS.LinkedDOF = {[1,3,4];[2,5];};
@@ -1183,26 +1186,29 @@ if SS.UDPEvnt.BytesAvailable
             case 'CalibrateTASKA'
                 %                 if (SS.TASKASensors.Ready)
                 if(SS.TASKASensors.Obj.Ready) %ESS081821
-                    tempLen = 200;
-                    tempIR = zeros(4,tempLen);
-                    tempbaro = zeros(4,tempLen);
-                    tempfiltIR = zeros(4,tempLen-SS.TASKASensors.window);
-                    tempfiltbaro = zeros(4,tempLen-SS.TASKASensors.window);
-                    for tind = 1:tempLen %median filter the data with window size
-                        [tempIR(:,tind), tempbaro(:,tind)] = readTASKASensors_simple(SS.TASKASensors.Obj,SS.TASKASensors.Count);
-                        if (tind > SS.TASKASensors.window)
-                            tempfiltIR(:,tind-SS.TASKASensors.window) = median(tempIR(:,tind-SS.TASKASensors.window:tind),2);
-                            tempfiltbaro(:,tind-SS.TASKASensors.window) = median(tempbaro(:,tind-SS.TASKASensors.window:tind),2);
-                        end
-                    end % take the max of the median filtered data
-                    TEMP_IR = max(tempfiltIR,[],2);
-                    TEMP_BR = max(tempfiltbaro,[],2);
-                    % keep new baseline only if it's greater than the
-                    % previous baseline
-                    SS.TASKASensors.BL.IR(TEMP_IR > SS.TASKASensors.BL.IR) = TEMP_IR(TEMP_IR > SS.TASKASensors.BL.IR);
-                    SS.TASKASensors.BL.baro(TEMP_BR > SS.TASKASensors.BL.baro) = TEMP_BR(TEMP_BR > SS.TASKASensors.BL.baro);
-                    % flush buffer to reduce lag
-                    flushinput(SS.TASKASensors.Obj);
+                    %                     tempLen = 200;
+                    %                     tempIR = zeros(4,tempLen);
+                    %                     tempbaro = zeros(4,tempLen);
+                    %                     tempfiltIR = zeros(4,tempLen-SS.TASKASensors.window);
+                    %                     tempfiltbaro = zeros(4,tempLen-SS.TASKASensors.window);
+                    %                     for tind = 1:tempLen %median filter the data with window size
+                    %                         [tempIR(:,tind), tempbaro(:,tind)] = readTASKASensors_simple(SS.TASKASensors.Obj,SS.TASKASensors.Count);
+                    %                         if (tind > SS.TASKASensors.window)
+                    %                             tempfiltIR(:,tind-SS.TASKASensors.window) = median(tempIR(:,tind-SS.TASKASensors.window:tind),2);
+                    %                             tempfiltbaro(:,tind-SS.TASKASensors.window) = median(tempbaro(:,tind-SS.TASKASensors.window:tind),2);
+                    %                         end
+                    %                     end % take the max of the median filtered data
+                    %                     TEMP_IR =
+                    %                     max(tempfiltIR,[],2);
+                    %                     TEMP_BR = max(tempfiltbaro,[],2);
+                    %                     % keep new baseline only if it's greater than the
+                    %                     % previous baseline
+                    %                     SS.TASKASensors.BL.IR(TEMP_IR > SS.TASKASensors.BL.IR) = TEMP_IR(TEMP_IR > SS.TASKASensors.BL.IR);
+                    %                     SS.TASKASensors.BL.baro(TEMP_BR > SS.TASKASensors.BL.baro) = TEMP_BR(TEMP_BR > SS.TASKASensors.BL.baro);
+                    %                     % flush buffer to reduce lag
+                    %                     flushinput(SS.TASKASensors.Obj);
+                    SS.TASKASensors.BL.IR = mean(SS.TASKASensors.Obj.IRBuffer,2);
+                    SS.TASKASensors.BL.baro = mean(SS.TASKASensors.Obj.BAROBuffer,2);
                 end
             case 'CalibrateTASKAreset'
                 SS.TASKASensors.BL.IR = [0;0;0;0];
@@ -2073,38 +2079,6 @@ if SS.DEKA.Ready
         switch SS.KinSrc
             case 'Training'
                 CurrX = SS.X;
-                %% Added by TNT 11/10/21 for simultaenous mapping from contralateral to DEKA
-                
-                
-                if(SS.LEAP.Ready && SS.LeapTrain )
-                    CurrX = zeros(12,1);
-                    [kin, ~, RHFlag,kin2,conFlag,~] = sampleLeapMotion();
-                    if(SS.DEKA.RightHand)
-                        if(~RHFlag) %% Use left hand for mirrored approach
-                            CurrX = kin;
-%                             CurrX(10) = CurrX(10);
-%                             CurrX(12) = CurrX(12);
-                        else
-                            if(conFlag) %% Use left hand for mirrored approach
-                                CurrX = kin2;
-%                                 CurrX(10) = -CurrX(10);
-%                                 CurrX(12) = -CurrX(12);
-                            end
-                        end
-                    else
-                        if(RHFlag)
-                            CurrX = kin;
-                            CurrX(10) = -CurrX(10);
-                        else
-                            if(~RHFlag)
-                                CurrX = kin;
-                                CurrX(10) = -CurrX(10);
-                            end
-                        end
-                    end
-                end
-%                 CurrX = CurrX([1,2,3,4,5,6,7,8,9,10,11,12]);
-                %%
             case {'Decode','COB'}
                 CurrX = SS.XHat;
             case 'Manual'
@@ -2472,7 +2446,23 @@ end
 function SS = sendStim(SS)
 
 if ~isempty(SS.StimChan)
+    SS.TaskaBuffer = circshift(SS.TaskaBuffer,-1,2);
+    SS.TaskaBufferUpdate = [
+        SS.TASKASensors.IR(1)
+        SS.TASKASensors.baro(1)
+        SS.TASKASensors.IR(2)
+        SS.TASKASensors.baro(2)
+        SS.TASKASensors.IR(3)
+        SS.TASKASensors.baro(3)
+        SS.TASKASensors.IR(4)
+        SS.TASKASensors.baro(4)
+        SS.TASKAMotors(:)];
+    SS.TaskaBufferUpdate
     
+    SS.TaskaBufferUpdateNorm = taskanormalizer(SS.TaskaBufferUpdate);
+    a = [SS.TaskaBufferUpdate SS.TaskaBufferUpdateNorm SS.INIoutputbuffer];
+    a(7:end,:)
+    SS.TaskaBuffer(1,end,:) = SS.TaskaBufferUpdateNorm;
     SS.ContStimAmp = zeros(length(SS.StimChan),1);
     SS.ContStimFreq = zeros(length(SS.StimChan),1);
     switch SS.StimMode %Off, Manual, MSMS, VRE, 3DHand, DEKA, Analog(DEKA)
@@ -2494,102 +2484,90 @@ if ~isempty(SS.StimChan)
     SS.StimSeq = repmat(SS.StimCmd,1,numel(SS.StimChan));
     SS.StimIdx = false(1,numel(SS.StimChan));
     SS.CurrTime = xippmex_1_12('time');
-    for k=1:length(SS.StimChan)
-        switch SS.StimMode %Off, Manual, MSMS, VRE
-            case 'MSMS'
-                try
-                    if strcmp(SS.VREInfo.HandType,'MPL')
-                        SS.ContStimFreq(k) = MSMS2Freq(SS.ContStimMSMS,SS.MSMSContactLabelsMPL,SS.XHat,SS.MSMSMotorLabelsMPL,SS.StimCell(k,:));
-                        SS.ContStimAmp(k) = MSMS2Amp(SS.ContStimMSMS,SS.MSMSContactLabelsMPL,SS.XHat,SS.MSMSMotorLabelsMPL,SS.StimCell(k,:));
-                    else
-                        SS.ContStimFreq(k) = MSMS2Freq(SS.ContStimMSMS,SS.MSMSContactLabelsLuke,SS.XHat,SS.MSMSMotorLabelsLuke,SS.StimCell(k,:));
-                        SS.ContStimAmp(k) = MSMS2Amp(SS.ContStimMSMS,SS.MSMSContactLabelsLuke,SS.XHat,SS.MSMSMotorLabelsLuke,SS.StimCell(k,:));
-                    end
-                catch
-                    disp('Dont use MSMS stim mode');
-                end
-            case 'VRE'
-                if SS.VREStatus
-                    if strcmp(SS.VREInfo.HandType,'MPL')
-                        SS.ContStimFreq(k) = VRESensor2Freq(SS.VREInfo.sensors.contact,SS.VREContactLabelsMPL,SS.VREInfo.sensors.motor_pos,SS.VREMotorLabelsMPL,SS.VREInfo.robot.motor_limit,SS.StimCell(k,:),'MPL');
-                        SS.ContStimAmp(k) = VRESensor2Amp(SS.VREInfo.sensors.contact,SS.VREContactLabelsMPL,SS.VREInfo.sensors.motor_pos,SS.VREMotorLabelsMPL,SS.VREInfo.robot.motor_limit,SS.StimCell(k,:),'MPL');
-                    else
-                        SS.ContStimFreq(k) = VRESensor2Freq(SS.VREInfo.sensors.contact,SS.VREContactLabelsLuke,SS.VREInfo.sensors.motor_pos,SS.VREMotorLabelsLuke,SS.VREInfo.robot.motor_limit,SS.StimCell(k,:),'Luke');
-                        SS.ContStimAmp(k) = VRESensor2Amp(SS.VREInfo.sensors.contact,SS.VREContactLabelsLuke,SS.VREInfo.sensors.motor_pos,SS.VREMotorLabelsLuke,SS.VREInfo.robot.motor_limit,SS.StimCell(k,:),'Luke');
-                        %                             SS.ContStimFreq(k) = VRESensor2Freq_step(SS.VREInfo.sensors.contact,SS.VREContactLabelsLuke,SS.VREInfo.sensors.motor_pos,SS.VREMotorLabelsLuke,SS.VREInfo.robot.motor_limit,SS.StimCell(k,:),'Luke');
-                        %                             SS.ContStimAmp(k) = VRESensor2Amp_step(SS.VREInfo.sensors.contact,SS.VREContactLabelsLuke,SS.VREInfo.sensors.motor_pos,SS.VREMotorLabelsLuke,SS.VREInfo.robot.motor_limit,SS.StimCell(k,:),'Luke');
-                    end
-                end
-            case '3DHand' %switched 08182021 ESS to workaround a labview issue
-                %                 for ifor i[SS.ContStimFreq(k), SS.ContStimAmp(k)] = TASKASensors2Stim(SS.TASKASensors.IR, SS.TASKASensors.baro, SS.TASKASensorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
+    switch SS.StimMode %Off, Manual, MSMS, VRE
+        case '3DHand' %switched 08182021 ESS to workaround a labview issue
+            SS.INIoutput = taskaThumb(SS.TaskaBuffer(1,:,SS.TaskaEncodeIndices),SS.TaskaEncodeParams);
+            SS.INIoutputbuffer(14) = SS.INIoutput(1,15,1);
+            if size(SS.INIoutputbuffer,3) > 1
+                SS.INIoutputbuffer(3) = SS.INIoutput(1,15,2);
+                SS.INIoutputbuffer(5) = SS.INIoutput(1,15,3);
+            end
+            SS.INIoutputbuffer = taskabuffernorm(SS.INIoutputbuffer);
+            
+            for k=1:length(SS.StimChan)
+                
+                %             case 'MSMS'
+                %
+                %             case 'VRE'
+                
+                %                 [SS.ContStimFreq(k), SS.ContStimAmp(k)] = TASKASensors2Stim(SS.TASKASensors.IR, SS.TASKASensors.baro, SS.TASKASensorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
                 %                 if k == 3
                 %                     SS.TASKASensors.IR
                 %                     SS.ContStimFreq
                 %                 end
-                if SS.ARD3.Ready
-                    try
-                        SS.ContStimFreq(k) = PHand2Freq(SS.PHandContactVals,SS.PHandContactLabels,SS.PHandMotorVals,SS.PHandMotorLabels,SS.StimCell(k,:));
-                        SS.ContStimAmp(k) = PHand2Amp(SS.PHandContactVals,SS.PHandContactLabels,SS.PHandMotorVals,SS.PHandMotorLabels,SS.StimCell(k,:));
-                    catch ME
-                        disp('Hand Arduino connection failed at send stim...');
-                        if isempty(ME.stack)
-                            fprintf('message: %s\r\n',ME.message);
-                        else
-                            fprintf('message: %s; name: %s; line: %0.0f\r\n',ME.message,ME.stack(1).name,ME.stack(1).line);
-                        end
-                        SS.ARD3.Ready = 0;
-                    end
-                end
-            case 'DEKA'
-                [SS.ContStimFreq(k), SS.ContStimAmp(k)] = DEKA2Stim(SS.ContDEKASensors,SS.PastDEKASensors,SS.DEKASensorLabels,SS.ContDEKAMotors,SS.PastDEKAMotors,SS.DEKAMotorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
-            case 'TASKA'
-                [SS.ContStimFreq(k), SS.ContStimAmp(k)] = TASKASensors2Stim(SS.TASKASensors.IR, SS.TASKASensors.baro, SS.TASKASensorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
-            case 'Analog(DEKA)'
-                [SS.ContStimFreq(k), SS.ContStimAmp(k)] = analogDEKA2Stim(SS.AnalogSensors,SS.ContDEKAMotors,SS.PastDEKAMotors,SS.DEKAMotorLabels,SS.StimCell(k,:));
-        end
-        
-        % Sending to nip
-        StimStepSizeIdx = SS.StimStepSize(floor((SS.StimChan(k)-1)/128)+1); %index into SS.StimStepSizeuA
-        if StimStepSizeIdx>=1 && StimStepSizeIdx<=6
-            StimSteps = floor(SS.ContStimAmp(k)/SS.StimStepSizeuA(StimStepSizeIdx));
-        else
-            StimSteps = 0;
-        end
-        CSF = SS.ContStimFreq(k);
-        if SS.Jitter
-            CSF = (CSF/2).*randn(length(CSF),1)+CSF; %normally distributed jitter with mean of specified freq and std of half specified frequency
-        end
-        CSF(CSF<0) = 0;
-        CSF(CSF>0 && CSF<5) = 5; %constraint to prevent low frequencies which have a slow ramp up time
-        CSF(CSF>500) = 500;
-        CSF(CSF==0) = SS.BFreq; %baseline frequency
-        StimSteps(StimSteps<0) = 0;
-        StimSteps(StimSteps>100) = 100;
-        StimSteps(StimSteps==0) = SS.BAmp; %baseline amplitude
-        SS.AllContStimAmp(SS.StimElec(k)) = StimSteps; %this gets saved to disk as *.csf filetype
-        SS.AllContStimFreq(SS.StimElec(k)) = CSF; %this gets saved to disk as *.csf filetype
-        if CSF>0
-            NextPulseDiff = max(floor(SS.NextPulse(SS.StimChan(k))-SS.CurrTime),1);%The number of 33.33 us samples between the current time and the current stim pulse that should be executed in this loop on this electrode.
-            if NextPulseDiff<floor(SS.BaseLoopTime*30000) %if the current pulse should happen within the current loop, then schedule it.
-                SS.StimSeq(k).elec = SS.StimChan(k);
-                SS.StimSeq(k).period = floor(30000./CSF); %period is in # of 33 us samples between successive start times of successive pulses. Was set to NextPulseDiff, but changed to frequency.
-                SS.StimSeq(k).repeats = ceil(SS.BaseLoopTime*CSF);
-                if NextPulseDiff==1 && CSF<(1/SS.BaseLoopTime)
-                    %                     fprintf('immed')
-                    SS.StimSeq(k).action = 'immed';
+                
+                [SS.ContStimFreq(k), SS.ContStimAmp(k)] = TASKASensors2Stim_INI_encodes(SS.INIoutput, SS.StimCell(k,:));
+%                 if k == 1
+%                     SS.INIoutputbuffer(2) = SS.ContStimFreq(k);
+%                 end
+%                 if k == 2
+%                     SS.INIoutputbuffer(4) = SS.ContStimFreq(k);
+%                 end
+%                 if k == 3
+%                     SS.INIoutputbuffer(6) = SS.ContStimFreq(k);
+%                 end
+                
+                %             case 'DEKA'
+                %                 [SS.ContStimFreq(k), SS.ContStimAmp(k)] = DEKA2Stim(SS.ContDEKASensors,SS.PastDEKASensors,SS.DEKASensorLabels,SS.ContDEKAMotors,SS.PastDEKAMotors,SS.DEKAMotorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
+                %             case 'TASKA'
+                %                 [SS.ContStimFreq(k), SS.ContStimAmp(k)] = TASKASensors2Stim(SS.TASKASensors.IR, SS.TASKASensors.baro, SS.TASKASensorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
+                %             case 'Analog(DEKA)'
+                %                 [SS.ContStimFreq(k), SS.ContStimAmp(k)] = analogDEKA2Stim(SS.AnalogSensors,SS.ContDEKAMotors,SS.PastDEKAMotors,SS.DEKAMotorLabels,SS.StimCell(k,:));
+                
+                
+                % Sending to nip
+                StimStepSizeIdx = SS.StimStepSize(floor((SS.StimChan(k)-1)/128)+1); %index into SS.StimStepSizeuA
+                if StimStepSizeIdx>=1 && StimStepSizeIdx<=6
+                    StimSteps = floor(SS.ContStimAmp(k)/SS.StimStepSizeuA(StimStepSizeIdx));
                 else
-                    %                     fprintf('curcyc')
-                    SS.StimSeq(k).action = 'curcyc';
+                    StimSteps = 0;
                 end
-                SS.StimSeq(k).seq(1).length = floor(SS.StimDur(k)*30);
-                SS.StimSeq(k).seq(1).ampl = StimSteps;
-                SS.StimSeq(k).seq(3).length = floor(SS.StimDur(k)*30);
-                SS.StimSeq(k).seq(3).ampl = StimSteps;
-                SS.NextPulse(SS.StimChan(k)) = SS.CurrTime + NextPulseDiff + floor(30000/CSF); %The NIP time (in number of 33.333 us cycles since boot-up) at which next stim pulse should be delivered (not the current,but the next)
-                SS.StimIdx(k) = true;
+                CSF = SS.ContStimFreq(k);
+                if SS.Jitter
+                    CSF = (CSF/2).*randn(length(CSF),1)+CSF; %normally distributed jitter with mean of specified freq and std of half specified frequency
+                end
+                CSF(CSF<0) = 0;
+                CSF(CSF>0 && CSF<5) = 5; %constraint to prevent low frequencies which have a slow ramp up time
+                CSF(CSF>500) = 500;
+                CSF(CSF==0) = SS.BFreq; %baseline frequency
+                StimSteps(StimSteps<0) = 0;
+                StimSteps(StimSteps>100) = 100;
+                StimSteps(StimSteps==0) = SS.BAmp; %baseline amplitude
+                SS.AllContStimAmp(SS.StimElec(k)) = StimSteps; %this gets saved to disk as *.csf filetype
+                SS.AllContStimFreq(SS.StimElec(k)) = CSF; %this gets saved to disk as *.csf filetype
+                if CSF>0
+                    NextPulseDiff = max(floor(SS.NextPulse(SS.StimChan(k))-SS.CurrTime),1);%The number of 33.33 us samples between the current time and the current stim pulse that should be executed in this loop on this electrode.
+                    if NextPulseDiff<floor(SS.BaseLoopTime*30000) %if the current pulse should happen within the current loop, then schedule it.
+                        SS.StimSeq(k).elec = SS.StimChan(k);
+                        SS.StimSeq(k).period = floor(30000./CSF); %period is in # of 33 us samples between successive start times of successive pulses. Was set to NextPulseDiff, but changed to frequency.
+                        SS.StimSeq(k).repeats = ceil(SS.BaseLoopTime*CSF);
+                        if NextPulseDiff==1 && CSF<(1/SS.BaseLoopTime)
+                            %                     fprintf('immed')
+                            SS.StimSeq(k).action = 'immed';
+                        else
+                            %                     fprintf('curcyc')
+                            SS.StimSeq(k).action = 'curcyc';
+                        end
+                        SS.StimSeq(k).seq(1).length = floor(SS.StimDur(k)*30);
+                        SS.StimSeq(k).seq(1).ampl = StimSteps;
+                        SS.StimSeq(k).seq(3).length = floor(SS.StimDur(k)*30);
+                        SS.StimSeq(k).seq(3).ampl = StimSteps;
+                        SS.NextPulse(SS.StimChan(k)) = SS.CurrTime + NextPulseDiff + floor(30000/CSF); %The NIP time (in number of 33.333 us cycles since boot-up) at which next stim pulse should be delivered (not the current,but the next)
+                        SS.StimIdx(k) = true;
+                    end
+                    
+                end
             end
-            
-        end
     end
     if any(SS.StimIdx)
         if all(ismember(SS.StimChan, SS.AvailStimList)) % check especially for VTStim
@@ -3630,7 +3608,6 @@ try
     SS.LEAP.Kinematics2 = zeros(12,1);
     SS.LEAP.Connected2 = false;
     SS.LEAP.IsRight2 = false;
-    SS.LeapTrain = 0;
     if(SS.LEAP.Ready)
         disp('Leap Motion Connected')
     else
@@ -3638,7 +3615,6 @@ try
     end
 catch
     SS.LEAP.Ready = 0;
-    SS.LeapTrain = 0;
     SS.LEAP.Kinematics = zeros(12,1);
     SS.LEAP.Connected = false;
     SS.LEAP.IsRight = false;
