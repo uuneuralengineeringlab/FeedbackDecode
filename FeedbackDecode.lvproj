@@ -155,6 +155,8 @@
 				<Item Name="Draw Flattened Pixmap.vi" Type="VI" URL="/&lt;vilib&gt;/picture/picture.llb/Draw Flattened Pixmap.vi"/>
 				<Item Name="Draw Rectangle.vi" Type="VI" URL="/&lt;vilib&gt;/picture/picture.llb/Draw Rectangle.vi"/>
 				<Item Name="Draw Round Rect.vi" Type="VI" URL="/&lt;vilib&gt;/picture/picture.llb/Draw Round Rect.vi"/>
+				<Item Name="Draw Text at Point.vi" Type="VI" URL="/&lt;vilib&gt;/picture/picture.llb/Draw Text at Point.vi"/>
+				<Item Name="Draw Text in Rect.vi" Type="VI" URL="/&lt;vilib&gt;/picture/picture.llb/Draw Text in Rect.vi"/>
 				<Item Name="DTbl Digital Size.vi" Type="VI" URL="/&lt;vilib&gt;/Waveform/DTblOps.llb/DTbl Digital Size.vi"/>
 				<Item Name="DTbl Uncompress Digital.vi" Type="VI" URL="/&lt;vilib&gt;/Waveform/DTblOps.llb/DTbl Uncompress Digital.vi"/>
 				<Item Name="DU64_U32SubtractWithBorrow.vi" Type="VI" URL="/&lt;vilib&gt;/Waveform/TSOps.llb/DU64_U32SubtractWithBorrow.vi"/>
@@ -218,6 +220,7 @@
 				<Item Name="Open File+.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/file.llb/Open File+.vi"/>
 				<Item Name="Path To Command Line String.vi" Type="VI" URL="/&lt;vilib&gt;/AdvancedString/Path To Command Line String.vi"/>
 				<Item Name="PathToUNIXPathString.vi" Type="VI" URL="/&lt;vilib&gt;/Platform/CFURL.llb/PathToUNIXPathString.vi"/>
+				<Item Name="PCT Pad String.vi" Type="VI" URL="/&lt;vilib&gt;/picture/picture.llb/PCT Pad String.vi"/>
 				<Item Name="Picture to Pixmap.vi" Type="VI" URL="/&lt;vilib&gt;/picture/pictutil.llb/Picture to Pixmap.vi"/>
 				<Item Name="Play Sound File.vi" Type="VI" URL="/&lt;vilib&gt;/sound2/lvsound2.llb/Play Sound File.vi"/>
 				<Item Name="Read Delimited Spreadsheet (DBL).vi" Type="VI" URL="/&lt;vilib&gt;/Utility/file.llb/Read Delimited Spreadsheet (DBL).vi"/>
@@ -290,6 +293,7 @@
 			<Item Name="blank.rtm" Type="Document" URL="../resources/blank.rtm"/>
 			<Item Name="FeedbackDecode_AdjParamsTable.vi" Type="VI" URL="../subvi/FeedbackDecode_AdjParamsTable.vi"/>
 			<Item Name="FeedbackDecode_AllEMGHM.vi" Type="VI" URL="../subvi/FeedbackDecode_AllEMGHM.vi"/>
+			<Item Name="FeedbackDecode_BarPlotKinematics.vi" Type="VI" URL="../subvi/FeedbackDecode_BarPlotKinematics.vi"/>
 			<Item Name="FeedbackDecode_BuildLocalPath.vi" Type="VI" URL="../subvi/FeedbackDecode_BuildLocalPath.vi"/>
 			<Item Name="FeedbackDecode_BuildMSMSMvnt.vi" Type="VI" URL="../subvi/FeedbackDecode_BuildMSMSMvnt.vi"/>
 			<Item Name="FeedbackDecode_BuildMSMSPacket.vi" Type="VI" URL="../subvi/FeedbackDecode_BuildMSMSPacket.vi"/>
