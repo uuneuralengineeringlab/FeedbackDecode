@@ -129,6 +129,7 @@ elseif any(IdxMotor)        %if electrode is tied to a motor position sensor...
             otherwise
                 %% unscaled linear fit between min and max values (never reaches true max)
                 Val = p0;
+%                 disp(Val);
                 Freq = Val*(MaxFreq-MinFreq) + MinFreq;
                 Amp = Val*(MaxAmp-MinAmp) + MinAmp;
         end
