@@ -267,16 +267,17 @@ SS.IMU.WaistAngles = [0,0,0];
 SS.IMU.ShoulderAngles = [0,0,0];
 
 % Initialize low-cost Nathan Taska wrist TNT 4/7/21
-try
-    [SS.LCWrist, SS.LCWrist_LastKin ] = initiateTaskaWrist();
-    SS.LCWrist_history = zeros(2,20);
-    SS.LCWrist_Ready = 1;
-    disp("Low-Cost Taska Wrist Connected");
-    
-catch
-    disp("No Low-Cost Taska Wrist found, IS THE PATH ADDED???");
-    SS.LCWrist_Ready = 0;
-end
+% try
+%     [SS.LCWrist, SS.LCWrist_LastKin ] = initiateTaskaWrist(); %
+% % Commented out by TNT 6/16/22 too slow during startup
+%     SS.LCWrist_history = zeros(2,20);
+%     SS.LCWrist_Ready = 1;
+%     disp("Low-Cost Taska Wrist Connected");
+%     
+% catch
+%     disp("No Low-Cost Taska Wrist found, IS THE PATH ADDED???");
+%     SS.LCWrist_Ready = 0;
+% end
 
 % Initializing loop timing
 SS.BaseLoopTime=0.033; %smw - change to 0.025 at some point?
@@ -534,9 +535,10 @@ end
 SS.DLNeural = min(floor(abs(SS.CurrTS-SS.XippTS)),SS.DLNeuralMax); SS.DLEMG = floor(SS.DLNeural/30); %samples since last acquisition
 SS.XippTS = SS.CurrTS;
 if SS.DLNeural
-    SS.dNeural = SS.DNeural(:,end-SS.DLNeural+1:end)'; %slow (0.62)
-    %     SS.dEMG = SS.DEMG(:,end-SS.DLEMG+1:end)'; %td: removed 0.2 factor since updated xippmex returns uV
-    SS.dEMG = 0.2*SS.DEMG(:,end-SS.DLEMG+1:end)'; % smw- question, what is this 0.2; td: Conversion to uV. For some reason, dNeural doesn't need this (may be fixed in newer xippmex.
+%     SS.dNeural = SS.DNeural(:,end-SS.DLNeural+1:end)'; %slow (0.62)
+%     SS.dEMG = 0.2*SS.DEMG(:,end-SS.DLEMG+1:end)'; % smw- question, what is this 0.2; td: Conversion to uV. For some reason, dNeural doesn't need this (may be fixed in newer xippmex.
+    SS.dNeural = (SS.DNeural(:,end-SS.DLNeural+1:end)./4)'; %factor 4 needed for xippmex_1_14 (they changed the scaling for some reason)
+    SS.dEMG = (0.2*SS.DEMG(:,end-SS.DLEMG+1:end)./4)'; %factor 4 needed for xippmex_1_14 (they changed the scaling for some reason)
 end
 
 % Filtering and performing CAR
@@ -2106,7 +2108,7 @@ if SS.DEKA.Ready
         %         [motors, sensors] = updateDEKA_wristp(CurrX,SS.DEKA.Neutral,SS.DEKA.RightHand); % wrist in pos mode (dk 2018-03-16)
         %save raw data
         SS.DEKA.RAW.sensors = sensors;
-        SS.DEKA.RAW.motors = motors;
+        SS.DEKA.RAW.motors = motors; %these are the commanded positions, not the actual motor positions from the hand (see pSensors/ContDEKAPositions below)
         %         disp(SS.DEKA.RAW.sensors)
         %scale each motor to bounds of 0 to 1 or -1 to 1
         motors(1) = setLimit(motors(1)/7680,[-1,1]);
@@ -2151,8 +2153,10 @@ if SS.DEKA.Ready
         SS.PastDEKAMotors(:,1) = SS.ContDEKAMotors;
         %update current sensor & motor values
         SS.ContDEKASensors =  cSensors;
-        SS.ContDEKAPositions = pSensors;
-        SS.ContDEKAMotors = motors;
+        SS.ContDEKAPositions = pSensors; %values from hand sensors (in degrees)
+        SS.ContDEKAPosNorm = setLimit((pSensors(1:6)'+[87,50,0,-50,0,0])./[205,100,40,50,84,82],[0,1]);
+        SS.ContDEKAMotors = motors; %commanded values from decode
+%         disp(SS.ContDEKAPositions')
         
     catch ME
         if isempty(ME.stack)
@@ -2494,8 +2498,16 @@ if ~isempty(SS.StimChan)
                         SS.ContStimFreq(k) = MSMS2Freq(SS.ContStimMSMS,SS.MSMSContactLabelsMPL,SS.XHat,SS.MSMSMotorLabelsMPL,SS.StimCell(k,:));
                         SS.ContStimAmp(k) = MSMS2Amp(SS.ContStimMSMS,SS.MSMSContactLabelsMPL,SS.XHat,SS.MSMSMotorLabelsMPL,SS.StimCell(k,:));
                     else
-                        SS.ContStimFreq(k) = MSMS2Freq(SS.ContStimMSMS,SS.MSMSContactLabelsLuke,SS.XHat,SS.MSMSMotorLabelsLuke,SS.StimCell(k,:));
-                        SS.ContStimAmp(k) = MSMS2Amp(SS.ContStimMSMS,SS.MSMSContactLabelsLuke,SS.XHat,SS.MSMSMotorLabelsLuke,SS.StimCell(k,:));
+%                         SS.ContStimFreq(k) = MSMS2Freq(SS.ContStimMSMS,SS.MSMSContactLabelsLuke,SS.XHat,SS.MSMSMotorLabelsLuke,SS.StimCell(k,:));
+%                         SS.ContStimAmp(k) = MSMS2Amp(SS.ContStimMSMS,SS.MSMSContactLabelsLuke,SS.XHat,SS.MSMSMotorLabelsLuke,SS.StimCell(k,:));
+%                         disp(SS.ContStimMSMS)  %% SS.ContStimMSMS/300
+%                         MSMS provides values between 0 and 300. It
+%                         increases till you get into the middle of the
+%                         target and then starts decreasing again, maybe
+%                         not the best for cutaneous. Proprioception
+%                         doesn't need to be motors so currX is fine
+                        [SS.ContStimFreq(k), SS.ContStimAmp(k)] = DEKA2Stim(SS.ContStimMSMS/300,SS.PastDEKASensors,SS.MSMSContactLabelsLuke,((SS.XHat+1)/2),SS.PastDEKAMotors,SS.MSMSMotorLabelsLuke,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
+
                     end
                 catch
                     disp('Dont use MSMS stim mode');
@@ -2533,7 +2545,8 @@ if ~isempty(SS.StimChan)
                     end
                 end
             case 'DEKA'
-                [SS.ContStimFreq(k), SS.ContStimAmp(k)] = DEKA2Stim(SS.ContDEKASensors,SS.PastDEKASensors,SS.DEKASensorLabels,SS.ContDEKAMotors,SS.PastDEKAMotors,SS.DEKAMotorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
+%                 [SS.ContStimFreq(k), SS.ContStimAmp(k)] = DEKA2Stim(SS.ContDEKASensors,SS.PastDEKASensors,SS.DEKASensorLabels,SS.ContDEKAMotors,SS.PastDEKAMotors,SS.DEKAMotorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
+                [SS.ContStimFreq(k), SS.ContStimAmp(k)] = DEKA2Stim(SS.ContDEKASensors,SS.PastDEKASensors,SS.DEKASensorLabels,SS.ContDEKAPosNorm,SS.PastDEKAMotors,SS.DEKAMotorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
             case 'TASKA'
                 [SS.ContStimFreq(k), SS.ContStimAmp(k)] = TASKASensors2Stim(SS.TASKASensors.IR, SS.TASKASensors.baro, SS.TASKASensorLabels,SS.StimCell(k,:),SS.DEKA.SensorThresholds');
             case 'Analog(DEKA)'
